@@ -1,94 +1,52 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Text } from 'react-native';
-import { Card, Button, IconButton } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Text, Alert } from 'react-native';
+import { Card, Button, IconButton, FAB, Portal, Modal, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '../config/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, spacing, typography } from '../config/theme';
+import { sensoryService, sensoryToolsData } from '../services/sensoryService';
+import { useAuth } from '../contexts/AuthContext';
 
 const SensoryScreen = () => {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [userPreferences, setUserPreferences] = useState({});
+  const [recommendations, setRecommendations] = useState({});
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const sensoryTools = [
-    {
-      category: 'visual',
-      title: 'Visual Comfort',
-      items: [
-        {
-          id: 'lights',
-          title: 'Light Sensitivity',
-          description: 'Adjust brightness and reduce glare',
-          icon: 'lightbulb-outline',
-          tips: ['Dim lights', 'Use natural lighting', 'Avoid fluorescent lights']
-        },
-        {
-          id: 'colors',
-          title: 'Color Therapy',
-          description: 'Calming color patterns',
-          icon: 'palette',
-          tips: ['Focus on blue tones', 'Avoid bright colors', 'Use soft gradients']
-        }
-      ]
-    },
-    {
-      category: 'audio',
-      title: 'Audio Comfort',
-      items: [
-        {
-          id: 'noise',
-          title: 'Noise Management',
-          description: 'Control environmental sounds',
-          icon: 'volume-medium',
-          tips: ['Use noise-canceling headphones', 'Find quiet spaces', 'Create white noise']
-        },
-        {
-          id: 'music',
-          title: 'Calming Sounds',
-          description: 'Soothing audio experiences',
-          icon: 'music-note',
-          tips: ['Listen to nature sounds', 'Use gentle music', 'Avoid sudden noises']
-        }
-      ]
-    },
-    {
-      category: 'touch',
-      title: 'Tactile Comfort',
-      items: [
-        {
-          id: 'texture',
-          title: 'Texture Management',
-          description: 'Comfortable textures and materials',
-          icon: 'hand-peace',
-          tips: ['Use soft fabrics', 'Avoid irritating materials', 'Find comfortable clothing']
-        },
-        {
-          id: 'pressure',
-          title: 'Deep Pressure',
-          description: 'Calming pressure techniques',
-          icon: 'hand',
-          tips: ['Use weighted blankets', 'Try pressure vests', 'Practice gentle squeezing']
-        }
-      ]
-    },
-    {
-      category: 'movement',
-      title: 'Movement Comfort',
-      items: [
-        {
-          id: 'balance',
-          title: 'Balance Activities',
-          description: 'Grounding exercises',
-          icon: 'meditation',
-          tips: ['Practice slow movements', 'Use rocking motions', 'Try balance exercises']
-        },
-        {
-          id: 'fidget',
-          title: 'Fidget Tools',
-          description: 'Movement-based calming tools',
-          icon: 'rotate-3d',
-          tips: ['Use fidget spinners', 'Try stress balls', 'Practice hand exercises']
-        }
-      ]
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Load user preferences
+      const { data: prefs, error: prefsError } = await sensoryService.getUserPreferences(user.id);
+      if (prefsError) throw prefsError;
+      
+      const prefsMap = {};
+      prefs?.forEach(pref => {
+        prefsMap[pref.sensory_type] = pref;
+      });
+      setUserPreferences(prefsMap);
+
+      // Load recommendations
+      const { data: recs, error: recsError } = await sensoryService.getRecommendedStrategies(user.id);
+      if (recsError) throw recsError;
+      setRecommendations(recs || {});
+    } catch (error) {
+      console.error('Error loading sensory data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const sensoryTools = Object.values(sensoryToolsData);
 
   const CategoryButton = ({ category, title, isSelected }) => (
     <Button
@@ -118,70 +76,192 @@ const SensoryScreen = () => {
     }
   };
 
-  const renderToolCard = (item) => (
-    <Card key={item.id} style={styles.toolCard}>
-      <Card.Content>
-        <View style={styles.toolHeader}>
-          <MaterialCommunityIcons 
-            name={item.icon} 
-            size={24} 
-            color={colors.primary}
-          />
-          <Text style={styles.toolTitle}>{item.title}</Text>
-        </View>
-        <Text style={styles.toolDescription}>{item.description}</Text>
-        <View style={styles.tipsContainer}>
-          {item.tips.map((tip, index) => (
-            <View key={index} style={styles.tipItem}>
+  const openToolModal = (tool) => {
+    setSelectedTool(tool);
+    setModalVisible(true);
+  };
+
+  const trackSensoryEvent = async (sensoryType, intensity, triggers, strategies, notes = '') => {
+    if (!user) return;
+    
+    try {
+      const { error } = await sensoryService.trackSensoryEvent(
+        user.id,
+        sensoryType,
+        intensity,
+        triggers,
+        strategies,
+        notes
+      );
+      
+      if (error) throw error;
+      Alert.alert('Success', 'Sensory event tracked successfully');
+    } catch (error) {
+      console.error('Error tracking sensory event:', error);
+      Alert.alert('Error', 'Failed to track sensory event');
+    }
+  };
+
+  const renderToolCard = (item) => {
+    const category = selectedCategory === 'all' ? 
+      sensoryTools.find(cat => cat.items.some(tool => tool.id === item.id))?.category : 
+      selectedCategory;
+    
+    const userPref = userPreferences[category];
+    const isRecommended = userPref && userPref.sensitivity_level >= 4;
+
+    return (
+      <Card key={item.id} style={[styles.toolCard, isRecommended && styles.recommendedCard]}>
+        <Card.Content>
+          <View style={styles.toolHeader}>
+            <MaterialCommunityIcons 
+              name={item.icon} 
+              size={24} 
+              color={colors.primary}
+            />
+            <Text style={styles.toolTitle}>{item.title}</Text>
+            {isRecommended && (
               <MaterialCommunityIcons 
-                name="check" 
+                name="star" 
                 size={16} 
-                color={colors.success}
+                color={colors.warning}
+                style={styles.recommendedIcon}
               />
-              <Text style={styles.tipText}>{tip}</Text>
+            )}
+          </View>
+          <Text style={styles.toolDescription}>{item.description}</Text>
+          
+          {isRecommended && (
+            <View style={styles.recommendationContainer}>
+              <Text style={styles.recommendationText}>
+                Recommended based on your {category} sensitivity
+              </Text>
             </View>
-          ))}
-        </View>
-      </Card.Content>
-    </Card>
-  );
+          )}
+          
+          <View style={styles.tipsContainer}>
+            {item.tips.map((tip, index) => (
+              <View key={index} style={styles.tipItem}>
+                <MaterialCommunityIcons 
+                  name="check" 
+                  size={16} 
+                  color={colors.success}
+                />
+                <Text style={styles.tipText}>{tip}</Text>
+              </View>
+            ))}
+          </View>
+        </Card.Content>
+        <Card.Actions>
+          <Button 
+            mode="outlined" 
+            onPress={() => openToolModal(item)}
+            icon="information"
+          >
+            Learn More
+          </Button>
+          {userPref && (
+            <Button 
+              mode="contained" 
+              onPress={() => trackSensoryEvent(
+                category,
+                userPref.sensitivity_level,
+                userPref.triggers || [],
+                item.strategies || [],
+                `Used ${item.title} tool`
+              )}
+              icon="plus"
+            >
+              Track Usage
+            </Button>
+          )}
+        </Card.Actions>
+      </Card>
+    );
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.mainTitle}>Sensory Management Tools</Text>
-      
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.categoryScroll}
-      >
-        <CategoryButton 
-          category="all" 
-          title="All Tools" 
-          isSelected={selectedCategory === 'all'}
-        />
-        {sensoryTools.map(category => (
-          <CategoryButton
-            key={category.category}
-            category={category.category}
-            title={category.title}
-            isSelected={selectedCategory === category.category}
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        <Text style={styles.mainTitle}>Sensory Management Tools</Text>
+        
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.categoryScroll}
+        >
+          <CategoryButton 
+            category="all" 
+            title="All Tools" 
+            isSelected={selectedCategory === 'all'}
           />
-        ))}
+          {sensoryTools.map(category => (
+            <CategoryButton
+              key={category.category}
+              category={category.category}
+              title={category.title}
+              isSelected={selectedCategory === category.category}
+            />
+          ))}
+        </ScrollView>
+
+        <View style={styles.toolsContainer}>
+          {sensoryTools
+            .filter(category => selectedCategory === 'all' || category.category === selectedCategory)
+            .map(category => (
+              <View key={category.category}>
+                <Text style={styles.categoryTitle}>{category.title}</Text>
+                {category.items.map(item => renderToolCard(item))}
+              </View>
+            ))
+          }
+        </View>
       </ScrollView>
 
-      <View style={styles.toolsContainer}>
-        {sensoryTools
-          .filter(category => selectedCategory === 'all' || category.category === selectedCategory)
-          .map(category => (
-            <View key={category.category}>
-              <Text style={styles.categoryTitle}>{category.title}</Text>
-              {category.items.map(item => renderToolCard(item))}
-            </View>
-          ))
-        }
-      </View>
-    </ScrollView>
+      <Portal>
+        <Modal
+          visible={modalVisible}
+          onDismiss={() => setModalVisible(false)}
+          contentContainerStyle={styles.modalContent}
+        >
+          {selectedTool && (
+            <ScrollView>
+              <Text style={styles.modalTitle}>{selectedTool.title}</Text>
+              <Text style={styles.modalDescription}>{selectedTool.description}</Text>
+              
+              <View style={styles.strategiesContainer}>
+                <Text style={styles.strategiesTitle}>Detailed Strategies:</Text>
+                {selectedTool.strategies?.map((strategy, index) => (
+                  <View key={index} style={styles.strategyItem}>
+                    <MaterialCommunityIcons 
+                      name="lightbulb-outline" 
+                      size={16} 
+                      color={colors.primary}
+                    />
+                    <Text style={styles.strategyText}>{strategy}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.modalActions}>
+                <Button mode="outlined" onPress={() => setModalVisible(false)}>
+                  Close
+                </Button>
+                <Button 
+                  mode="contained" 
+                  onPress={() => {
+                    // TODO: Add to favorites or track usage
+                    setModalVisible(false);
+                  }}
+                >
+                  Add to Favorites
+                </Button>
+              </View>
+            </ScrollView>
+          )}
+        </Modal>
+      </Portal>
+    </SafeAreaView>
   );
 };
 
@@ -189,6 +269,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
     padding: spacing.md,
   },
   mainTitle: {
@@ -222,6 +305,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     elevation: 2,
   },
+  recommendedCard: {
+    borderWidth: 2,
+    borderColor: colors.warning,
+    backgroundColor: colors.warning + '10',
+  },
   toolHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -232,11 +320,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginLeft: spacing.sm,
+    flex: 1,
+  },
+  recommendedIcon: {
+    marginLeft: spacing.xs,
   },
   toolDescription: {
     fontSize: 14,
     color: colors.subtext,
     marginBottom: spacing.md,
+  },
+  recommendationContainer: {
+    backgroundColor: colors.warning + '20',
+    padding: spacing.sm,
+    borderRadius: 6,
+    marginBottom: spacing.md,
+  },
+  recommendationText: {
+    fontSize: 12,
+    color: colors.warning,
+    fontStyle: 'italic',
   },
   tipsContainer: {
     backgroundColor: colors.accent1 + '20',
@@ -252,6 +355,49 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     color: colors.text,
     fontSize: 14,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 12,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  modalDescription: {
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
+    marginBottom: spacing.lg,
+  },
+  strategiesContainer: {
+    marginBottom: spacing.lg,
+  },
+  strategiesTitle: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  strategyItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  strategyText: {
+    marginLeft: spacing.sm,
+    color: colors.text,
+    fontSize: typography.sizes.md,
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
   },
 });
 

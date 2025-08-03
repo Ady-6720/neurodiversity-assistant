@@ -112,6 +112,18 @@ CREATE TABLE IF NOT EXISTS public.cognitive_entries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create sensory events tracking table
+CREATE TABLE IF NOT EXISTS public.sensory_events (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    sensory_type TEXT NOT NULL, -- e.g., 'sound', 'light', 'texture', 'smell'
+    intensity_level INTEGER NOT NULL CHECK (intensity_level BETWEEN 1 AND 5),
+    triggers TEXT[], -- Array of specific triggers that caused the event
+    coping_strategies TEXT[], -- Array of strategies used to cope
+    notes TEXT, -- Additional notes about the event
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON public.tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);
@@ -126,6 +138,7 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sensory_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sensory_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.communication_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cognitive_entries ENABLE ROW LEVEL SECURITY;
@@ -138,6 +151,7 @@ CREATE POLICY "Users can insert own profile" ON public.user_profiles FOR INSERT 
 CREATE POLICY "Users can manage own tasks" ON public.tasks FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own schedules" ON public.schedules FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own sensory preferences" ON public.sensory_preferences FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own sensory events" ON public.sensory_events FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own focus sessions" ON public.focus_sessions FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own communication templates" ON public.communication_templates FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own cognitive entries" ON public.cognitive_entries FOR ALL USING (auth.uid() = user_id);
