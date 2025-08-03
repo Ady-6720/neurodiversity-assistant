@@ -40,7 +40,10 @@ const HomeScreen = () => {
         <View style={styles.welcomeSection}>
           <Text style={styles.welcomeText}>Welcome back!</Text>
           <Text style={styles.nameText}>
-            {profile?.display_name || 'User'}
+            {profile?.name || 'User'}
+          </Text>
+          <Text style={styles.emailText}>
+            {user?.email}
           </Text>
         </View>
 
@@ -50,10 +53,7 @@ const HomeScreen = () => {
           
           <TouchableOpacity 
             style={[styles.actionCard, styles.primaryAction]}
-            onPress={() => {
-              // TODO: Navigate to daily activity screen
-              // navigation.navigate('DailyActivity');
-            }}
+            onPress={() => console.log('Start activity')}
           >
             <Text style={[styles.actionTitle, styles.primaryActionTitle]}>
               Start Daily Activity
@@ -65,10 +65,7 @@ const HomeScreen = () => {
 
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => {
-              // TODO: Navigate to progress screen
-              // navigation.navigate('Progress');
-            }}
+            onPress={() => console.log('View progress')}
           >
             <Text style={styles.actionTitle}>View Progress</Text>
             <Text style={styles.actionDescription}>
@@ -78,10 +75,7 @@ const HomeScreen = () => {
 
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => {
-              // TODO: Navigate to settings screen
-              // navigation.navigate('Settings');
-            }}
+            onPress={() => console.log('Settings')}
           >
             <Text style={styles.actionTitle}>Settings</Text>
             <Text style={styles.actionDescription}>
@@ -133,7 +127,10 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
     marginBottom: 4,
   },
-
+  emailText: {
+    fontSize: 16,
+    color: '#7B8794',
+  },
   actionsSection: {
     marginBottom: 40,
   },

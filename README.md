@@ -12,7 +12,8 @@ NeuroEase is a comprehensive mobile application built to assist neurodivergent i
 - Emotional Regulation Tools
 - Sensory Overload Management
 - Daily Routine Assistance
-- Focus and Productivity Tools
+- Focus and Productivity Tools (Pomodoro Timer)
+- Communication Templates
 - Customizable User Experience
 
 ## 🛠️ Technology Stack
@@ -34,7 +35,15 @@ git clone https://github.com/Ady-6720/neurodiversity-assistant.git
 npm install
 ```
 
-3. Run the development server:
+3. Set up environment variables:
+   - Copy `env.example` to `.env.local`
+   - Update with your Supabase credentials:
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. Run the development server:
 ```bash
 npm start
 ```
