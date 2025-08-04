@@ -23,7 +23,6 @@ import HomeScreen from './src/screens/HomeScreen';
 import TaskScreen from './src/screens/TaskScreen';
 import ScheduleScreen from './src/screens/ScheduleScreen';
 import SensoryScreen from './src/screens/SensoryScreen';
-import CommunicationScreen from './src/screens/CommunicationScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import CognitiveScreen from './src/screens/CognitiveScreen';
 import StandardAuthScreen from './src/screens/StandardAuthScreen';
@@ -93,13 +92,7 @@ const screenConfigs = [
     label: 'Sensory',
     color: colors.accent1
   },
-  {
-    name: 'Communication',
-    component: CommunicationScreen,
-    icon: 'message-text',
-    label: 'Communicate',
-    color: colors.accent2
-  },
+
   {
     name: 'Cognitive',
     component: CognitiveScreen,
