@@ -17,13 +17,23 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [error, setError] = useState(null);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to get initial session:', error);
+        setError('Failed to connect to authentication service. Please check your internet connection.');
+        setIsOnline(false);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const {
@@ -54,9 +64,18 @@ export const AuthProvider = ({ children }) => {
             setNeedsOnboarding(true);
           }
         } catch (error) {
-          // New user - needs onboarding
-          setProfile({ display_name: currentUser.email?.split('@')[0] });
-          setNeedsOnboarding(true);
+          console.error('Error loading user profile:', error);
+          // Check if it's a network error or new user
+          if (error.message?.includes('PGRST116') || error.code === 'PGRST116') {
+            // New user - profile doesn't exist yet
+            setProfile({ display_name: currentUser.email?.split('@')[0] });
+            setNeedsOnboarding(true);
+          } else {
+            // Network or other error
+            setError('Failed to load user profile. Please check your connection.');
+            setProfile({ display_name: currentUser.email?.split('@')[0] });
+            setNeedsOnboarding(true);
+          }
         }
       } else {
         setProfile(null);

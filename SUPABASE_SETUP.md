@@ -18,13 +18,18 @@ After project creation (takes ~2 minutes):
    - **Project URL** (looks like: `https://xxxxx.supabase.co`)
    - **Anon Public Key** (starts with `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`)
 
-### 3. Update Your App Configuration
-1. Open `src/config/supabase.js`
-2. Replace the placeholder values:
-```javascript
-const supabaseUrl = 'YOUR_ACTUAL_PROJECT_URL';
-const supabaseAnonKey = 'YOUR_ACTUAL_ANON_KEY';
-```
+### 3. Set Up Environment Variables (REQUIRED)
+1. Copy `.env.example` to `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Edit `.env.local` and add your actual Supabase credentials:
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_actual_anon_key_here
+   ```
+
+⚠️ **SECURITY WARNING**: Never commit `.env.local` to version control. It's already in `.gitignore`.
 
 ### 4. Set Up Database Schema
 1. In Supabase Dashboard, go to **SQL Editor**
@@ -56,20 +61,8 @@ const supabaseAnonKey = 'YOUR_ACTUAL_ANON_KEY';
 - **User profile auto-creation**: Profile created automatically on signup
 - **Flexible JSON fields**: Store complex preferences and settings
 
-## 🔧 Environment Variables (Optional)
-For production, consider using environment variables:
-
-Create `.env.local`:
-```
-EXPO_PUBLIC_SUPABASE_URL=your_project_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-```
-
-Then update `supabase.js`:
-```javascript
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-```
+## 🔧 Environment Variables Setup Complete
+Environment variables are now required and configured in step 3 above. The app will not start without proper `.env.local` configuration.
 
 ## 🧪 Testing Your Setup
 

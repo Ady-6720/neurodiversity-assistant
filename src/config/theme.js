@@ -1,42 +1,42 @@
 // src/config/theme.js
 
-// Soothing colors optimized for autism and ADHD
+// Soothing colors optimized for autism and ADHD with better contrast
 const colors = {
     // Primary colors
-    primary: '#7CB9E8',    // Soft Sky Blue - Main brand color
-    secondary: '#B4CFB0',  // Sage Green - Secondary brand color
-    tertiary: '#E6E6FA',   // Soft Lavender - Tertiary brand color
+    primary: '#4A90E2',    // Deeper Sky Blue - Main brand color
+    secondary: '#7FB069',  // Deeper Sage Green - Secondary brand color
+    tertiary: '#9B7BB8',   // Deeper Lavender - Tertiary brand color
 
     // Background colors
-    background: '#F7F9FC', // Very Light Blue-Grey
+    background: '#F8FAFC', // Very Light Blue-Grey
     surface: '#FFFFFF',    // Pure White
-    cardBg: '#F0F4F8',    // Soft Grey-Blue
+    cardBg: '#F1F5F9',    // Soft Grey-Blue
 
     // Accent colors
-    accent1: '#C5E0DC',   // Pale Aqua
-    accent2: '#D8E2DC',   // Light Grey-Green
-    accent3: '#E8E8E8',   // Light Grey
+    accent1: '#A8D5BA',   // Deeper Aqua
+    accent2: '#B8C9B8',   // Deeper Grey-Green
+    accent3: '#D1D5DB',   // Deeper Grey
 
     // Text colors
-    text: '#2F4858',      // Dark Blue-Grey
-    subtext: '#6B7C93',   // Medium Grey-Blue
+    text: '#1F2937',      // Darker Blue-Grey for better contrast
+    subtext: '#4B5563',   // Darker Grey-Blue for better contrast
 
     // Functional colors
-    success: '#9CC69B',   // Muted Green
-    warning: '#E6C79C',   // Soft Orange
-    error: '#E6A5A5',     // Muted Red
-    info: '#A5C5E6',      // Soft Blue
+    success: '#10B981',   // Brighter Green
+    warning: '#F59E0B',   // Brighter Orange
+    error: '#EF4444',     // Brighter Red
+    info: '#3B82F6',      // Brighter Blue
 
     // Category colors
-    focus: '#B5C7E7',     // Soft Blue
-    memory: '#C7DCD0',    // Soft Green
-    planning: '#D4E2D4',  // Light Sage
-    impulse: '#E6DBD0',   // Soft Beige
+    focus: '#6366F1',     // Deeper Blue
+    memory: '#10B981',    // Deeper Green
+    planning: '#059669',  // Deeper Sage
+    impulse: '#D97706',   // Deeper Beige
 
     // Interactive elements
-    buttonBg: '#AFC2D5',  // Muted Blue
+    buttonBg: '#6B7280',  // Deeper Grey
     buttonText: '#FFFFFF', // White
-    highlight: '#E6F3FF',  // Very Light Blue
+    highlight: '#DBEAFE',  // Deeper Light Blue
 };
 
 const spacing = {

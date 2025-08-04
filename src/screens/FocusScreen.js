@@ -10,17 +10,48 @@ import {
   FAB,
   Portal,
   Modal,
-  TextInput
+  TextInput,
+  ActivityIndicator,
+  Snackbar
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../config/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { focusService } from '../services/focusService';
 
 const FocusScreen = () => {
+  const { user } = useAuth();
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [sessionType, setSessionType] = useState('pomodoro');
   const [modalVisible, setModalVisible] = useState(false);
   const [sessionNote, setSessionNote] = useState('');
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [focusStats, setFocusStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  useEffect(() => {
+    loadFocusStats();
+  }, [user]);
+
+  // Load focus statistics
+  const loadFocusStats = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await focusService.getFocusStats(user.id, 7); // Last 7 days
+      if (error) {
+        console.error('Error loading focus stats:', error);
+      } else {
+        setFocusStats(data);
+      }
+    } catch (error) {
+      console.error('Error loading focus stats:', error);
+    }
+  };
 
   const sessionTypes = [
     { key: 'pomodoro', label: 'Pomodoro', duration: 25 },
@@ -37,13 +68,41 @@ const FocusScreen = () => {
       }, 1000);
     } else if (timeLeft === 0) {
       setIsTimerRunning(false);
-      // TODO: Add notification sound
+      completeSession();
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timeLeft]);
 
-  const startTimer = () => {
+  const startTimer = async () => {
+    if (!user) {
+      setSnackbarMessage('Please log in to track focus sessions');
+      setSnackbarVisible(true);
+      return;
+    }
+
     setIsTimerRunning(true);
+    setSessionStartTime(new Date());
+    
+    // Create session in backend
+    try {
+      const selectedSession = sessionTypes.find(s => s.key === sessionType);
+      const sessionData = {
+        sessionType: sessionType,
+        plannedDuration: selectedSession.duration,
+        actualDuration: 0,
+        completed: false,
+        notes: sessionNote
+      };
+      
+      const { data, error } = await focusService.createFocusSession(user.id, sessionData);
+      if (error) {
+        console.error('Error creating focus session:', error);
+      } else {
+        setCurrentSessionId(data.id);
+      }
+    } catch (error) {
+      console.error('Error creating focus session:', error);
+    }
   };
 
   const pauseTimer = () => {
@@ -52,8 +111,38 @@ const FocusScreen = () => {
 
   const resetTimer = () => {
     setIsTimerRunning(false);
-    const selectedType = sessionTypes.find(type => type.key === sessionType);
-    setTimeLeft(selectedType.duration * 60);
+    const selectedSession = sessionTypes.find(s => s.key === sessionType);
+    setTimeLeft(selectedSession.duration * 60);
+    setCurrentSessionId(null);
+    setSessionStartTime(null);
+  };
+
+  const completeSession = async () => {
+    if (!currentSessionId || !sessionStartTime) return;
+    
+    try {
+      const actualDuration = Math.round((new Date() - sessionStartTime) / (1000 * 60)); // minutes
+      const updates = {
+        actual_duration_minutes: actualDuration,
+        completed: true,
+        completed_at: new Date().toISOString(),
+        notes: sessionNote
+      };
+      
+      const { error } = await focusService.updateFocusSession(currentSessionId, updates);
+      if (error) {
+        console.error('Error completing focus session:', error);
+      } else {
+        setSnackbarMessage('Focus session completed successfully!');
+        setSnackbarVisible(true);
+        loadFocusStats(); // Refresh stats
+      }
+    } catch (error) {
+      console.error('Error completing focus session:', error);
+    }
+    
+    setCurrentSessionId(null);
+    setSessionStartTime(null);
   };
 
   const formatTime = (seconds) => {
@@ -177,6 +266,16 @@ const FocusScreen = () => {
           </View>
         </Modal>
       </Portal>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -271,6 +370,9 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  snackbar: {
+    backgroundColor: colors.surface,
   },
 });
 

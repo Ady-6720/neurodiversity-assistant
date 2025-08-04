@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { 
   FAB, 
   Portal, 
@@ -9,52 +9,144 @@ import {
   Chip,
   Divider,
   List,
-  IconButton
+  IconButton,
+  ActivityIndicator,
+  Snackbar
 } from 'react-native-paper';
 import { StyledCard } from '../components/StyledCard';
 import { StyledText } from '../components/StyledText';
 import { StyledButton } from '../components/StyledButton';
 import { colors, spacing, shapes, shadows } from '../config/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { taskService } from '../services/taskService';
 
 const TaskScreen = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'incomplete', 'completed'
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  useEffect(() => {
+    loadTasks();
+  }, [user, filter]);
+
+  // Load tasks from backend
+  const loadTasks = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await taskService.getUserTasks(user.id, filter);
+      if (error) {
+        console.error('Error loading tasks:', error);
+        setSnackbarMessage('Failed to load tasks');
+        setSnackbarVisible(true);
+      } else {
+        setTasks(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      setSnackbarMessage('Failed to load tasks');
+      setSnackbarVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh tasks
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTasks();
+    setRefreshing(false);
+  };
 
   // Add new task
-  const addTask = () => {
+  const addTask = async () => {
     if (newTask.trim().length === 0) {
       setErrorMessage('Please enter a task description');
       return;
     }
     
-    const task = {
-      id: Date.now().toString(),
-      title: newTask.trim(),
-      completed: false,
-      createdAt: new Date(),
-    };
-    
-    setTasks([task, ...tasks]);
-    setNewTask('');
-    setModalVisible(false);
-    setErrorMessage('');
+    if (!user) {
+      setErrorMessage('User not authenticated');
+      return;
+    }
+
+    try {
+      const taskData = {
+        title: newTask.trim(),
+        description: '',
+        priority: 'medium',
+        category: 'general'
+      };
+
+      const { data, error } = await taskService.createTask(user.id, taskData);
+      if (error) {
+        console.error('Error creating task:', error);
+        setErrorMessage('Failed to create task');
+      } else {
+        setTasks([data, ...tasks]);
+        setNewTask('');
+        setModalVisible(false);
+        setErrorMessage('');
+        setSnackbarMessage('Task created successfully');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+      setErrorMessage('Failed to create task');
+    }
   };
 
   // Toggle task completion
-  const toggleTask = (taskId) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: !task.completed }
-        : task
-    ));
+  const toggleTask = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    try {
+      const { data, error } = await taskService.toggleTaskCompletion(taskId, !task.completed);
+      if (error) {
+        console.error('Error toggling task:', error);
+        setSnackbarMessage('Failed to update task');
+        setSnackbarVisible(true);
+      } else {
+        setTasks(tasks.map(t => 
+          t.id === taskId ? { ...t, completed: !t.completed } : t
+        ));
+        setSnackbarMessage(task.completed ? 'Task marked as incomplete' : 'Task completed!');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      console.error('Error toggling task:', error);
+      setSnackbarMessage('Failed to update task');
+      setSnackbarVisible(true);
+    }
   };
 
   // Delete task
-  const deleteTask = (taskId) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+  const deleteTask = async (taskId) => {
+    try {
+      const { error } = await taskService.deleteTask(taskId);
+      if (error) {
+        console.error('Error deleting task:', error);
+        setSnackbarMessage('Failed to delete task');
+        setSnackbarVisible(true);
+      } else {
+        setTasks(tasks.filter(task => task.id !== taskId));
+        setSnackbarMessage('Task deleted');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      setSnackbarMessage('Failed to delete task');
+      setSnackbarVisible(true);
+    }
   };
 
   // Filter tasks
@@ -89,7 +181,7 @@ const TaskScreen = () => {
             {task.title}
           </StyledText>
           <StyledText variant="caption" style={styles.taskDate}>
-            {new Date(task.createdAt).toLocaleDateString()}
+            {new Date(task.created_at || task.createdAt).toLocaleDateString()}
           </StyledText>
         </View>
         <IconButton
@@ -137,22 +229,38 @@ const TaskScreen = () => {
       <Divider />
 
       {/* Task List */}
-      <ScrollView style={styles.taskList}>
-        {filteredTasks.length === 0 ? (
-          <View style={styles.emptyState}>
-            <StyledText variant="h2" style={styles.emptyStateText}>
-              No {filter} tasks
-            </StyledText>
-            <StyledText variant="caption" style={styles.emptyStateSubtext}>
-              Tap the + button to add a new task
-            </StyledText>
-          </View>
-        ) : (
-          filteredTasks.map(task => (
-            <TaskItem key={task.id} task={task} />
-          ))
-        )}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <StyledText style={styles.loadingText}>Loading tasks...</StyledText>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.taskList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {filteredTasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <StyledText variant="h2" style={styles.emptyStateText}>
+                No {filter} tasks
+              </StyledText>
+              <StyledText variant="caption" style={styles.emptyStateSubtext}>
+                {filter === 'all' ? 'Tap the + button to add a new task' : `No ${filter} tasks found`}
+              </StyledText>
+            </View>
+          ) : (
+            filteredTasks.map(task => (
+              <TaskItem key={task.id} task={task} />
+            ))
+          )}
+        </ScrollView>
+      )}
 
       {/* Add Task FAB */}
       <FAB
@@ -216,6 +324,16 @@ const TaskScreen = () => {
           </View>
         </Modal>
       </Portal>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 };
@@ -306,6 +424,19 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     color: colors.subtext,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    color: colors.subtext,
+  },
+  snackbar: {
+    backgroundColor: colors.surface,
   },
 });
 

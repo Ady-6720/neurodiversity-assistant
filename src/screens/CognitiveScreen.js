@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { 
   Card, 
   Title, 
@@ -7,241 +7,279 @@ import {
   Button, 
   Portal, 
   Modal,
-  Surface,
   IconButton,
   Text,
-  useTheme,
-  ProgressBar
+  Chip,
+  Divider
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// Soothing color palette specifically chosen for autism/ADHD
-const colors = {
-  primary: '#4A90E2',  // Soft blue - calming
-  secondary: '#7FB069', // Muted green - natural, relaxing
-  tertiary: '#B4A7D6',  // Soft purple - gentle
-  background: '#F5F6F8', // Light grey-blue - reduces eye strain
-  surface: '#FFFFFF',    // Pure white for content
-  accent1: '#9BB7D4',   // Pale blue - peaceful
-  accent2: '#A8D8B9',   // Soft sage - tranquil
-  accent3: '#D5A6BD',   // Muted rose - warm
-  text: '#2C3E50',      // Dark blue-grey - high contrast but gentle
-  subtext: '#627789'    // Medium blue-grey - secondary text
-};
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, spacing, typography } from '../config/theme';
 
 const CognitiveScreen = ({ navigation }) => {
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const exercises = [
+  const sections = [
     {
-      id: 1,
-      category: 'Focus & Attention',
-      exercises: [
-        {
-          title: 'Pattern Memory',
-          description: 'Remember and reproduce patterns to build visual memory and attention',
-          duration: '5-10 mins',
-          difficulty: 'Adjustable',
-          icon: 'shape-plus',
-          color: colors.primary,
-          benefits: [
-            'Improves working memory',
-            'Enhances visual processing',
-            'Builds sustained attention'
-          ]
-        },
-        {
-          title: 'Number Sequence',
-          description: 'Follow and complete number patterns at your own pace',
-          duration: '5-15 mins',
-          difficulty: 'Adjustable',
-          icon: 'numeric',
-          color: colors.secondary,
-          benefits: [
-            'Strengthens sequential thinking',
-            'Develops pattern recognition',
-            'Improves numerical processing'
-          ]
-        }
-      ]
+      id: 'focus',
+      title: 'Focus & Attention',
+      subtitle: 'Build concentration and sustained attention skills',
+      icon: 'target',
+      color: colors.primary,
+      exerciseCount: 3,
+      description: 'Exercises to improve your ability to concentrate and maintain focus on tasks.'
     },
     {
-      id: 2,
-      category: 'Organization & Planning',
-      exercises: [
-        {
-          title: 'Task Breakdown',
-          description: 'Learn to break complex tasks into manageable steps',
-          duration: '10-15 mins',
-          difficulty: 'Easy',
-          icon: 'format-list-checks',
-          color: colors.tertiary,
-          benefits: [
-            'Improves task management',
-            'Reduces overwhelm',
-            'Builds planning skills'
-          ]
-        },
-        {
-          title: 'Time Estimation',
-          description: 'Practice estimating time for various activities',
-          duration: '5-10 mins',
-          difficulty: 'Medium',
-          icon: 'clock-outline',
-          color: colors.accent1,
-          benefits: [
-            'Enhances time awareness',
-            'Improves scheduling skills',
-            'Develops realistic planning'
-          ]
-        }
-      ]
+      id: 'organization',
+      title: 'Organization & Planning',
+      subtitle: 'Develop better task management and planning abilities',
+      icon: 'format-list-checks',
+      color: colors.secondary,
+      exerciseCount: 2,
+      description: 'Learn to break down complex tasks and manage your time effectively.'
     },
     {
-      id: 3,
-      category: 'Impulse Control',
-      exercises: [
-        {
-          title: 'Mindful Response',
-          description: 'Practice pausing and choosing responses mindfully',
-          duration: '5-10 mins',
-          difficulty: 'Easy',
-          icon: 'meditation',
-          color: colors.accent2,
-          benefits: [
-            'Improves self-regulation',
-            'Reduces impulsive reactions',
-            'Builds mindfulness'
-          ]
-        },
-        {
-          title: 'Go/No-Go Game',
-          description: 'Fun exercise to practice response inhibition',
-          duration: '5-8 mins',
-          difficulty: 'Adjustable',
-          icon: 'traffic-light',
-          color: colors.accent3,
-          benefits: [
-            'Strengthens impulse control',
-            'Improves attention',
-            'Enhances decision making'
-          ]
-        }
-      ]
+      id: 'impulse',
+      title: 'Impulse Control',
+      subtitle: 'Practice mindfulness and self-regulation techniques',
+      icon: 'meditation',
+      color: colors.tertiary,
+      exerciseCount: 1,
+      description: 'Build skills to pause, think, and choose responses mindfully.'
     },
     {
-      id: 4,
-      category: 'Memory & Processing',
-      exercises: [
-        {
-          title: 'Object Recall',
-          description: 'Remember and describe objects with increasing detail',
-          duration: '5-10 mins',
-          difficulty: 'Adjustable',
-          icon: 'eye-check',
-          color: colors.primary,
-          benefits: [
-            'Enhances visual memory',
-            'Improves descriptive skills',
-            'Builds attention to detail'
-          ]
-        },
-        {
-          title: 'Category Sorting',
-          description: 'Sort items into categories with increasing complexity',
-          duration: '5-15 mins',
-          difficulty: 'Adjustable',
-          icon: 'folder-multiple',
-          color: colors.secondary,
-          benefits: [
-            'Improves organizational skills',
-            'Enhances cognitive flexibility',
-            'Develops categorization abilities'
-          ]
-        }
-      ]
+      id: 'memory',
+      title: 'Memory & Processing',
+      subtitle: 'Enhance memory retention and information processing',
+      icon: 'brain',
+      color: colors.accent1,
+      exerciseCount: 2,
+      description: 'Strengthen your memory and improve how you process information.'
     }
   ];
+
+  const exercises = {
+    focus: [
+      {
+        id: 'color-tap',
+        title: 'Color Tap',
+        description: 'Tap the matching color circle when you see the color name',
+        duration: '2-3 mins',
+        difficulty: 'Easy',
+        icon: 'palette',
+        color: colors.primary,
+        type: 'color-tap',
+        benefits: [
+          'Improves visual attention',
+          'Enhances color recognition',
+          'Builds quick response skills'
+        ]
+      },
+      {
+        id: 'number-order',
+        title: 'Number Order',
+        description: 'Tap numbers 1-5 in the correct order',
+        duration: '2-3 mins',
+        difficulty: 'Easy',
+        icon: 'numeric',
+        color: colors.secondary,
+        type: 'number-order',
+        benefits: [
+          'Strengthens sequential thinking',
+          'Improves number recognition',
+          'Builds memory skills'
+        ]
+      },
+      {
+        id: 'big-button',
+        title: 'Big Button',
+        description: 'Tap the button when it appears on screen',
+        duration: '2-3 mins',
+        difficulty: 'Easy',
+        icon: 'gesture-tap',
+        color: colors.tertiary,
+        type: 'big-button',
+        benefits: [
+          'Improves reaction time',
+          'Enhances attention',
+          'Builds focus skills'
+        ]
+      }
+    ],
+    organization: [
+      {
+        id: 'this-or-that',
+        title: 'This or That',
+        description: 'Choose between two options based on the question',
+        duration: '2-3 mins',
+        difficulty: 'Easy',
+        icon: 'help-circle',
+        color: colors.tertiary,
+        type: 'this-or-that',
+        benefits: [
+          'Improves decision making',
+          'Enhances logical thinking',
+          'Builds comparison skills'
+        ]
+      },
+      {
+        id: 'odd-one-out',
+        title: 'Odd One Out',
+        description: 'Find the item that doesn\'t belong with the others',
+        duration: '2-3 mins',
+        difficulty: 'Easy',
+        icon: 'magnify',
+        color: colors.accent1,
+        type: 'odd-one-out',
+        benefits: [
+          'Improves pattern recognition',
+          'Enhances categorization',
+          'Builds analytical thinking'
+        ]
+      }
+    ],
+    impulse: [
+      {
+        id: 'breathe-timer',
+        title: 'Breathe Timer',
+        description: 'Focus on breathing for 30 seconds',
+        duration: '30 secs',
+        difficulty: 'Easy',
+        icon: 'meditation',
+        color: colors.accent2,
+        type: 'breathe-timer',
+        benefits: [
+          'Improves self-regulation',
+          'Reduces stress',
+          'Builds mindfulness'
+        ]
+      }
+    ],
+    memory: [
+      {
+        id: 'daily-checklist',
+        title: 'Daily Checklist',
+        description: 'Check off 5 common daily tasks',
+        duration: '1-2 mins',
+        difficulty: 'Easy',
+        icon: 'format-list-checks',
+        color: colors.primary,
+        type: 'daily-checklist',
+        benefits: [
+          'Improves task organization',
+          'Enhances memory',
+          'Builds planning skills'
+        ]
+      },
+      {
+        id: 'mood-check',
+        title: 'Mood Check',
+        description: 'Select how you\'re feeling right now',
+        duration: '30 secs',
+        difficulty: 'Easy',
+        icon: 'emoticon',
+        color: colors.secondary,
+        type: 'mood-check',
+        benefits: [
+          'Improves self-awareness',
+          'Enhances emotional recognition',
+          'Builds mindfulness'
+        ]
+      }
+    ]
+  };
 
   const showExerciseDetails = (exercise) => {
     setSelectedExercise(exercise);
     setModalVisible(true);
   };
 
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Welcome Section */}
-      <Surface style={styles.welcomeSection}>
-        <Title style={[styles.welcomeTitle, { color: colors.text }]}>
-          Cognitive Exercises
-        </Title>
-        <Paragraph style={[styles.welcomeText, { color: colors.subtext }]}>
-          Take your time and progress at your own pace. Each exercise can be adjusted to your comfort level.
-        </Paragraph>
-      </Surface>
+  const navigateToSection = (sectionId) => {
+    console.log('Navigating to section:', sectionId);
+    console.log('Available sections:', sections);
+    console.log('Available exercises:', exercises);
+    
+    const section = sections.find(s => s.id === sectionId);
+    const sectionExercises = exercises[sectionId];
+    
+    console.log('Found section:', section);
+    console.log('Found exercises:', sectionExercises);
+    
+    // Navigate to the exercise subscreen
+    navigation.navigate('CognitiveExercises', { 
+      sectionId, 
+      section,
+      exercises: sectionExercises
+    });
+  };
 
-      {/* Exercise Categories */}
-      {exercises.map((category) => (
-        <View key={category.id} style={styles.categorySection}>
-          <Title style={[styles.categoryTitle, { color: colors.text }]}>
-            {category.category}
-          </Title>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.exerciseScroll}
-          >
-            {category.exercises.map((exercise, index) => (
-              <Card
-                key={index}
-                style={[styles.exerciseCard, { backgroundColor: colors.surface }]}
-                onPress={() => showExerciseDetails(exercise)}
-              >
-                <Card.Content>
-                  <View style={[styles.iconContainer, { backgroundColor: exercise.color }]}>
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Sections Grid */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.sectionsGrid}>
+          {sections.map((section) => (
+            <Card
+              key={section.id}
+              style={styles.sectionCard}
+              onPress={() => navigateToSection(section.id)}
+            >
+              <Card.Content style={styles.sectionCardContent}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: section.color }]}>
                     <MaterialCommunityIcons 
-                      name={exercise.icon} 
+                      name={section.icon} 
                       size={32} 
                       color={colors.surface}
                     />
                   </View>
-                  <Title style={[styles.exerciseTitle, { color: colors.text }]}>
-                    {exercise.title}
-                  </Title>
-                  <Paragraph style={[styles.exerciseDescription, { color: colors.subtext }]}>
-                    {exercise.description}
-                  </Paragraph>
-                  <View style={styles.exerciseMetadata}>
-                    <Text style={[styles.metadataText, { color: colors.subtext }]}>
-                      {exercise.duration}
-                    </Text>
-                    <Text style={[styles.metadataText, { color: colors.subtext }]}>
-                      {exercise.difficulty}
-                    </Text>
+                  <View style={styles.sectionInfo}>
+                    <Title style={styles.sectionTitle}>{section.title}</Title>
+                    <Text style={styles.sectionSubtitle}>{section.subtitle}</Text>
                   </View>
-                </Card.Content>
-              </Card>
-            ))}
-          </ScrollView>
+                </View>
+                
+                <Text style={styles.sectionDescription}>
+                  {section.description}
+                </Text>
+                
+                <View style={styles.sectionFooter}>
+                  <Chip 
+                    icon="dumbbell" 
+                    style={styles.exerciseCountChip}
+                    textStyle={styles.chipText}
+                  >
+                    {section.exerciseCount} exercises
+                  </Chip>
+                  <MaterialCommunityIcons 
+                    name="chevron-right" 
+                    size={24} 
+                    color={colors.subtext}
+                  />
+                </View>
+              </Card.Content>
+            </Card>
+          ))}
         </View>
-      ))}
+      </ScrollView>
 
       {/* Exercise Details Modal */}
       <Portal>
         <Modal
           visible={modalVisible}
           onDismiss={() => setModalVisible(false)}
-          contentContainerStyle={[styles.modal, { backgroundColor: colors.surface }]}
+          contentContainerStyle={styles.modal}
         >
           {selectedExercise && (
-            <ScrollView>
+            <View style={styles.modalContent}>
               <IconButton
                 icon="close"
                 size={24}
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
               />
+              
               <View style={[styles.modalIconContainer, { backgroundColor: selectedExercise.color }]}>
                 <MaterialCommunityIcons 
                   name={selectedExercise.icon} 
@@ -249,45 +287,49 @@ const CognitiveScreen = ({ navigation }) => {
                   color={colors.surface}
                 />
               </View>
-              <Title style={[styles.modalTitle, { color: colors.text }]}>
+              
+              <Title style={styles.modalTitle}>
                 {selectedExercise.title}
               </Title>
-              <Paragraph style={[styles.modalDescription, { color: colors.subtext }]}>
+              
+              <Paragraph style={styles.modalDescription}>
                 {selectedExercise.description}
               </Paragraph>
               
-              <Title style={[styles.benefitsTitle, { color: colors.text }]}>Benefits</Title>
-              {selectedExercise.benefits.map((benefit, index) => (
-                <View key={index} style={styles.benefitItem}>
-                  <MaterialCommunityIcons 
-                    name="check-circle" 
-                    size={24} 
-                    color={selectedExercise.color}
-                  />
-                  <Text style={[styles.benefitText, { color: colors.text }]}>
-                    {benefit}
-                  </Text>
-                </View>
-              ))}
+              <View style={styles.benefitsSection}>
+                <Title style={styles.benefitsTitle}>Benefits</Title>
+                {selectedExercise.benefits.map((benefit, index) => (
+                  <View key={index} style={styles.benefitItem}>
+                    <MaterialCommunityIcons 
+                      name="check-circle" 
+                      size={20} 
+                      color={selectedExercise.color}
+                    />
+                    <Text style={styles.benefitText}>
+                      {benefit}
+                    </Text>
+                  </View>
+                ))}
+              </View>
 
               <View style={styles.modalMetadata}>
                 <View style={styles.metadataItem}>
                   <MaterialCommunityIcons 
                     name="clock-outline" 
-                    size={24} 
+                    size={20} 
                     color={colors.subtext}
                   />
-                  <Text style={[styles.metadataItemText, { color: colors.subtext }]}>
+                  <Text style={styles.metadataItemText}>
                     {selectedExercise.duration}
                   </Text>
                 </View>
                 <View style={styles.metadataItem}>
                   <MaterialCommunityIcons 
                     name="stairs" 
-                    size={24} 
+                    size={20} 
                     color={colors.subtext}
                   />
-                  <Text style={[styles.metadataItemText, { color: colors.subtext }]}>
+                  <Text style={styles.metadataItemText}>
                     {selectedExercise.difficulty}
                   </Text>
                 </View>
@@ -303,82 +345,116 @@ const CognitiveScreen = ({ navigation }) => {
               >
                 Start Exercise
               </Button>
-            </ScrollView>
+            </View>
           )}
         </Modal>
       </Portal>
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  welcomeSection: {
-    padding: 20,
-    marginBottom: 10,
+  header: {
+    padding: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  progressButton: {
+    margin: 0,
+  },
+  headerTitle: {
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
+    lineHeight: 20,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  sectionsGrid: {
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  sectionCard: {
+    backgroundColor: colors.surface,
     elevation: 2,
   },
-  welcomeTitle: {
-    fontSize: 24,
-    marginBottom: 8,
+  sectionCardContent: {
+    padding: spacing.lg,
   },
-  welcomeText: {
-    fontSize: 16,
-    lineHeight: 24,
+  sectionHeader: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
   },
-  categorySection: {
-    marginBottom: 20,
-  },
-  categoryTitle: {
-    fontSize: 20,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  exerciseScroll: {
-    paddingHorizontal: 8,
-  },
-  exerciseCard: {
-    width: Dimensions.get('window').width * 0.75,
-    marginHorizontal: 8,
-    elevation: 2,
-  },
-  iconContainer: {
+  sectionIcon: {
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: spacing.md,
   },
-  exerciseTitle: {
-    fontSize: 18,
-    marginBottom: 8,
+  sectionInfo: {
+    flex: 1,
   },
-  exerciseDescription: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  sectionSubtitle: {
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
     lineHeight: 20,
-    marginBottom: 12,
   },
-  exerciseMetadata: {
+  sectionDescription: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  sectionFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
   },
-  metadataText: {
-    fontSize: 12,
+  exerciseCountChip: {
+    backgroundColor: colors.background,
+  },
+  chipText: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
   },
   modal: {
-    margin: 20,
-    borderRadius: 8,
-    padding: 20,
-    maxHeight: '90%',
+    margin: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    maxHeight: '85%',
+  },
+  modalContent: {
+    padding: spacing.lg,
   },
   closeButton: {
     position: 'absolute',
-    right: 8,
-    top: 8,
+    right: spacing.sm,
+    top: spacing.sm,
     zIndex: 1,
   },
   modalIconContainer: {
@@ -387,49 +463,62 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.lg,
     alignSelf: 'center',
   },
   modalTitle: {
-    fontSize: 24,
-    marginBottom: 12,
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   modalDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
+    lineHeight: 22,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
+  benefitsSection: {
+    marginBottom: spacing.lg,
+  },
   benefitsTitle: {
-    fontSize: 20,
-    marginBottom: 12,
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   benefitText: {
-    fontSize: 16,
-    marginLeft: 12,
+    fontSize: typography.sizes.md,
+    color: colors.text,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
   modalMetadata: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 20,
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: 8,
   },
   metadataItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   metadataItemText: {
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
+    marginLeft: spacing.xs,
   },
   startButton: {
-    marginTop: 20,
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
 });
 

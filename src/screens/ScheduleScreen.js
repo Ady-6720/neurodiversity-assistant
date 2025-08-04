@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { 
   Portal, 
   Modal, 
@@ -9,19 +9,28 @@ import {
   Divider,
   Switch,
   TextInput,
-  List
+  List,
+  ActivityIndicator,
+  Snackbar
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyledCard } from '../components/StyledCard';
 import { StyledText } from '../components/StyledText';
 import { StyledButton } from '../components/StyledButton';
 import { colors, spacing, shapes, shadows } from '../config/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { scheduleService } from '../services/scheduleService';
 
 const ScheduleScreen = () => {
+  const { user } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [newActivity, setNewActivity] = useState({
     title: '',
     time: '',
@@ -32,6 +41,41 @@ const ScheduleScreen = () => {
     visualSupport: true,
     reminder: true,
   });
+
+  useEffect(() => {
+    loadSchedule();
+  }, [user, currentDate]);
+
+  // Load schedule from backend
+  const loadSchedule = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const dateString = currentDate.toISOString().split('T')[0];
+      const { data, error } = await scheduleService.getScheduleByDate(user.id, dateString);
+      if (error) {
+        console.error('Error loading schedule:', error);
+        setSnackbarMessage('Failed to load schedule');
+        setSnackbarVisible(true);
+      } else {
+        setSchedules(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading schedule:', error);
+      setSnackbarMessage('Failed to load schedule');
+      setSnackbarVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh schedule
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadSchedule();
+    setRefreshing(false);
+  };
 
   // Predefined activity types with icons and colors
   const activityTypes = [
@@ -51,18 +95,37 @@ const ScheduleScreen = () => {
     return `${hour}:00`;
   });
 
-  const addActivity = () => {
+  const addActivity = async () => {
     if (!newActivity.title || !newActivity.time) return;
+    if (!user) {
+      setSnackbarMessage('User not authenticated');
+      setSnackbarVisible(true);
+      return;
+    }
 
-    const activity = {
-      id: Date.now().toString(),
-      ...newActivity,
-      completed: false,
-    };
+    try {
+      const scheduleData = {
+        ...newActivity,
+        date: currentDate.toISOString().split('T')[0]
+      };
 
-    setSchedules([...schedules, activity]);
-    setModalVisible(false);
-    resetNewActivity();
+      const { data, error } = await scheduleService.createScheduleItem(user.id, scheduleData);
+      if (error) {
+        console.error('Error creating schedule item:', error);
+        setSnackbarMessage('Failed to create activity');
+        setSnackbarVisible(true);
+      } else {
+        setSchedules([...schedules, data]);
+        setModalVisible(false);
+        resetNewActivity();
+        setSnackbarMessage('Activity added successfully');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      console.error('Error creating schedule item:', error);
+      setSnackbarMessage('Failed to create activity');
+      setSnackbarVisible(true);
+    }
   };
 
   const resetNewActivity = () => {
@@ -174,15 +237,31 @@ const ScheduleScreen = () => {
       <Divider />
 
       {/* Schedule Timeline */}
-      <ScrollView style={styles.timeline}>
-        {timeSlots.map(time => (
-          <TimeSlotCard
-            key={time}
-            time={time}
-            activities={schedules.filter(a => a.time === time)}
-          />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <StyledText style={styles.loadingText}>Loading schedule...</StyledText>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.timeline}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {timeSlots.map(time => (
+            <TimeSlotCard
+              key={time}
+              time={time}
+              activities={schedules.filter(a => a.scheduled_time === time || a.time === time)}
+            />
+          ))}
+        </ScrollView>
+      )}
 
       {/* Add Activity Modal */}
       <Portal>
@@ -295,6 +374,16 @@ const ScheduleScreen = () => {
           </ScrollView>
         </Modal>
       </Portal>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
 
       {/* FAB for quick add */}
       <FAB
@@ -417,6 +506,19 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: spacing.xs,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    color: colors.subtext,
+  },
+  snackbar: {
+    backgroundColor: colors.surface,
   },
 });
 

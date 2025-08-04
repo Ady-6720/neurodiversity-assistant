@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Text, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, Alert, TouchableOpacity } from 'react-native';
 import { Card, Button, IconButton, FAB, Portal, Modal, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,26 +27,46 @@ const SensoryScreen = () => {
     try {
       // Load user preferences
       const { data: prefs, error: prefsError } = await sensoryService.getUserPreferences(user.id);
-      if (prefsError) throw prefsError;
+      if (prefsError) {
+        console.error('Error loading preferences:', prefsError);
+      }
       
       const prefsMap = {};
-      prefs?.forEach(pref => {
-        prefsMap[pref.sensory_type] = pref;
-      });
+      if (prefs && Array.isArray(prefs)) {
+        prefs.forEach(pref => {
+          if (pref && pref.sensory_type) {
+            prefsMap[pref.sensory_type] = pref;
+          }
+        });
+      }
       setUserPreferences(prefsMap);
 
       // Load recommendations
       const { data: recs, error: recsError } = await sensoryService.getRecommendedStrategies(user.id);
-      if (recsError) throw recsError;
+      if (recsError) {
+        console.error('Error loading recommendations:', recsError);
+      }
       setRecommendations(recs || {});
     } catch (error) {
       console.error('Error loading sensory data:', error);
+      // Set default empty states to prevent crashes
+      setUserPreferences({});
+      setRecommendations({});
     } finally {
       setLoading(false);
     }
   };
 
-  const sensoryTools = Object.values(sensoryToolsData);
+  const sensoryTools = Object.values(sensoryToolsData || {});
+
+  const sensoryTypes = [
+    { key: 'sound', label: 'Sound', icon: 'ear-hearing' },
+    { key: 'light', label: 'Light', icon: 'eye-outline' },
+    { key: 'texture', label: 'Texture', icon: 'hand-peace' },
+    { key: 'smell', label: 'Smell', icon: 'nose' },
+    { key: 'taste', label: 'Taste', icon: 'food-apple' },
+    { key: 'movement', label: 'Movement', icon: 'run' }
+  ];
 
   const CategoryButton = ({ category, title, isSelected }) => (
     <Button
@@ -76,6 +96,28 @@ const SensoryScreen = () => {
     }
   };
 
+  const getSensitivityLabel = (level) => {
+    switch (level) {
+      case 1: return 'Very Low';
+      case 2: return 'Low';
+      case 3: return 'Moderate';
+      case 4: return 'High';
+      case 5: return 'Very High';
+      default: return 'Moderate';
+    }
+  };
+
+  const getSensitivityColor = (level) => {
+    switch (level) {
+      case 1: return '#4CAF50';
+      case 2: return '#8BC34A';
+      case 3: return '#FFC107';
+      case 4: return '#FF9800';
+      case 5: return '#F44336';
+      default: return '#FFC107';
+    }
+  };
+
   const openToolModal = (tool) => {
     setSelectedTool(tool);
     setModalVisible(true);
@@ -102,119 +144,145 @@ const SensoryScreen = () => {
     }
   };
 
-  const renderToolCard = (item) => {
-    const category = selectedCategory === 'all' ? 
-      sensoryTools.find(cat => cat.items.some(tool => tool.id === item.id))?.category : 
-      selectedCategory;
-    
-    const userPref = userPreferences[category];
-    const isRecommended = userPref && userPref.sensitivity_level >= 4;
-
-    return (
-      <Card key={item.id} style={[styles.toolCard, isRecommended && styles.recommendedCard]}>
-        <Card.Content>
-          <View style={styles.toolHeader}>
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={24} 
-              color={colors.primary}
-            />
-            <Text style={styles.toolTitle}>{item.title}</Text>
-            {isRecommended && (
-              <MaterialCommunityIcons 
-                name="star" 
-                size={16} 
-                color={colors.warning}
-                style={styles.recommendedIcon}
-              />
-            )}
-          </View>
-          <Text style={styles.toolDescription}>{item.description}</Text>
-          
-          {isRecommended && (
-            <View style={styles.recommendationContainer}>
-              <Text style={styles.recommendationText}>
-                Recommended based on your {category} sensitivity
-              </Text>
-            </View>
-          )}
-          
-          <View style={styles.tipsContainer}>
-            {item.tips.map((tip, index) => (
-              <View key={index} style={styles.tipItem}>
-                <MaterialCommunityIcons 
-                  name="check" 
-                  size={16} 
-                  color={colors.success}
-                />
-                <Text style={styles.tipText}>{tip}</Text>
-              </View>
-            ))}
-          </View>
-        </Card.Content>
-        <Card.Actions>
-          <Button 
-            mode="outlined" 
-            onPress={() => openToolModal(item)}
-            icon="information"
-          >
-            Learn More
-          </Button>
-          {userPref && (
-            <Button 
-              mode="contained" 
-              onPress={() => trackSensoryEvent(
-                category,
-                userPref.sensitivity_level,
-                userPref.triggers || [],
-                item.strategies || [],
-                `Used ${item.title} tool`
-              )}
-              icon="plus"
-            >
-              Track Usage
-            </Button>
-          )}
-        </Card.Actions>
-      </Card>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <Text style={styles.mainTitle}>Sensory Management Tools</Text>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.categoryScroll}
-        >
-          <CategoryButton 
-            category="all" 
-            title="All Tools" 
-            isSelected={selectedCategory === 'all'}
-          />
-          {sensoryTools.map(category => (
-            <CategoryButton
-              key={category.category}
-              category={category.category}
-              title={category.title}
-              isSelected={selectedCategory === category.category}
-            />
-          ))}
-        </ScrollView>
-
-        <View style={styles.toolsContainer}>
-          {sensoryTools
-            .filter(category => selectedCategory === 'all' || category.category === selectedCategory)
-            .map(category => (
-              <View key={category.category}>
-                <Text style={styles.categoryTitle}>{category.title}</Text>
-                {category.items.map(item => renderToolCard(item))}
+        {/* Stats Section */}
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsTitle}>Your Sensory Profile</Text>
+          <View style={styles.statsGrid}>
+            {Object.keys(userPreferences).length > 0 ? (
+              Object.entries(userPreferences).map(([type, pref]) => {
+                const typeInfo = sensoryTypes.find(t => t.key === type);
+                return (
+                  <View key={type} style={styles.statCard}>
+                    <MaterialCommunityIcons 
+                      name={typeInfo?.icon || 'circle'} 
+                      size={20} 
+                      color={getSensitivityColor(pref.sensitivity_level)}
+                    />
+                    <Text style={styles.statLabel}>{typeInfo?.label || type}</Text>
+                    <Text style={styles.statValue}>{getSensitivityLabel(pref.sensitivity_level)}</Text>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.emptyStats}>
+                <Text style={styles.emptyStatsText}>No preferences set yet</Text>
+                <Text style={styles.emptyStatsSubtext}>Set your sensory preferences to get personalized recommendations</Text>
               </View>
-            ))
-          }
+            )}
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActionsContainer}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity style={styles.quickActionCard}>
+              <MaterialCommunityIcons name="cog" size={24} color={colors.primary} />
+              <Text style={styles.quickActionTitle}>Set Preferences</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionCard}>
+              <MaterialCommunityIcons name="chart-line" size={24} color={colors.primary} />
+              <Text style={styles.quickActionTitle}>Track Event</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionCard}>
+              <MaterialCommunityIcons name="star" size={24} color={colors.primary} />
+              <Text style={styles.quickActionTitle}>Favorites</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Recommended Tools */}
+        <View style={styles.recommendedContainer}>
+          <Text style={styles.sectionTitle}>Recommended for You</Text>
+          {Object.keys(userPreferences).length > 0 ? (
+            sensoryTools
+              .filter(category => userPreferences[category.category])
+              .slice(0, 2)
+              .map(category => 
+                category.items
+                  .filter(item => {
+                    const pref = userPreferences[category.category];
+                    return pref && pref.sensitivity_level >= 4;
+                  })
+                  .slice(0, 2)
+                  .map(item => (
+                    <View key={item.id} style={styles.recommendedTool}>
+                      <MaterialCommunityIcons 
+                        name={item.icon} 
+                        size={24} 
+                        color={colors.primary}
+                      />
+                      <View style={styles.recommendedToolContent}>
+                        <Text style={styles.recommendedToolTitle}>{item.title}</Text>
+                        <Text style={styles.recommendedToolDescription}>{item.description}</Text>
+                      </View>
+                    </View>
+                  ))
+              )
+          ) : (
+            <View style={styles.emptyRecommendations}>
+              <Text style={styles.emptyRecommendationsText}>Set your preferences to see personalized recommendations</Text>
+            </View>
+          )}
+        </View>
+
+        {/* All Tools - Simplified */}
+        <View style={styles.allToolsContainer}>
+          <Text style={styles.sectionTitle}>All Sensory Tools</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.categoryScroll}
+          >
+            <CategoryButton 
+              category="all" 
+              title="All" 
+              isSelected={selectedCategory === 'all'}
+            />
+            {sensoryTools.map(category => (
+              <CategoryButton
+                key={category.category}
+                category={category.category}
+                title={category.title}
+                isSelected={selectedCategory === category.category}
+              />
+            ))}
+          </ScrollView>
+
+          <View style={styles.toolsContainer}>
+            {sensoryTools
+              .filter(category => selectedCategory === 'all' || category.category === selectedCategory)
+              .map(category => (
+                <View key={category.category}>
+                  {category.items.map(item => (
+                    <TouchableOpacity 
+                      key={item.id} 
+                      style={styles.simpleToolCard}
+                      onPress={() => openToolModal(item)}
+                    >
+                      <MaterialCommunityIcons 
+                        name={item.icon} 
+                        size={24} 
+                        color={colors.primary}
+                      />
+                      <View style={styles.simpleToolContent}>
+                        <Text style={styles.simpleToolTitle}>{item.title}</Text>
+                        <Text style={styles.simpleToolDescription}>{item.description}</Text>
+                      </View>
+                      <MaterialCommunityIcons 
+                        name="chevron-right" 
+                        size={20} 
+                        color={colors.subtext}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))
+            }
+          </View>
         </View>
       </ScrollView>
 
@@ -229,19 +297,21 @@ const SensoryScreen = () => {
               <Text style={styles.modalTitle}>{selectedTool.title}</Text>
               <Text style={styles.modalDescription}>{selectedTool.description}</Text>
               
-              <View style={styles.strategiesContainer}>
-                <Text style={styles.strategiesTitle}>Detailed Strategies:</Text>
-                {selectedTool.strategies?.map((strategy, index) => (
-                  <View key={index} style={styles.strategyItem}>
-                    <MaterialCommunityIcons 
-                      name="lightbulb-outline" 
-                      size={16} 
-                      color={colors.primary}
-                    />
-                    <Text style={styles.strategyText}>{strategy}</Text>
-                  </View>
-                ))}
-              </View>
+              {selectedTool.strategies && selectedTool.strategies.length > 0 && (
+                <View style={styles.strategiesContainer}>
+                  <Text style={styles.strategiesTitle}>Detailed Strategies:</Text>
+                  {selectedTool.strategies.map((strategy, index) => (
+                    <View key={index} style={styles.strategyItem}>
+                      <MaterialCommunityIcons 
+                        name="lightbulb-outline" 
+                        size={16} 
+                        color={colors.primary}
+                      />
+                      <Text style={styles.strategyText}>{strategy || 'Strategy not available'}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               <View style={styles.modalActions}>
                 <Button mode="outlined" onPress={() => setModalVisible(false)}>
@@ -272,17 +342,176 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
+  // Stats Section
+  statsContainer: {
     marginBottom: spacing.lg,
+  },
+  statsTitle: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-evenly',
+    alignItems: 'stretch',
+    paddingHorizontal: spacing.xs,
+  },
+  statCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30%',
+    minHeight: 85,
+    marginHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statLabel: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
-  categoryScroll: {
+  statValue: {
+    fontSize: typography.sizes.xs,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  emptyStats: {
+    backgroundColor: colors.surface,
+    padding: spacing.xl,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    width: '100%',
+  },
+  emptyStatsText: {
+    fontSize: typography.sizes.md,
+    color: colors.text,
+    fontWeight: typography.weights.semibold,
+    textAlign: 'center',
+    width: '100%',
+    flexWrap: 'wrap',
+  },
+  emptyStatsSubtext: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    width: '100%',
+    flexWrap: 'wrap',
+  },
+  // Quick Actions
+  quickActionsContainer: {
     marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    paddingHorizontal: spacing.sm,
+  },
+  quickActionCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30%',
+    minHeight: 90,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  quickActionTitle: {
+    fontSize: typography.sizes.sm,
+    color: colors.text,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  // Recommended Tools
+  recommendedContainer: {
+    marginBottom: spacing.lg,
+  },
+  recommendedTool: {
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  recommendedToolContent: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  recommendedToolTitle: {
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+  },
+  recommendedToolDescription: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
+    marginTop: spacing.xs,
+  },
+  emptyRecommendations: {
+    backgroundColor: colors.surface,
+    padding: spacing.xl,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  emptyRecommendationsText: {
+    fontSize: typography.sizes.md,
+    color: colors.subtext,
+    textAlign: 'center',
+  },
+  // All Tools Section
+  allToolsContainer: {
+    marginBottom: spacing.lg,
+  },
+  categoryScroll: {
+    marginBottom: spacing.md,
   },
   categoryButton: {
     marginRight: spacing.sm,
@@ -292,70 +521,36 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   toolsContainer: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
-  categoryTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  toolCard: {
-    marginBottom: spacing.md,
+  simpleToolCard: {
     backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  recommendedCard: {
-    borderWidth: 2,
-    borderColor: colors.warning,
-    backgroundColor: colors.warning + '10',
-  },
-  toolHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  toolTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: spacing.sm,
+  simpleToolContent: {
     flex: 1,
-  },
-  recommendedIcon: {
-    marginLeft: spacing.xs,
-  },
-  toolDescription: {
-    fontSize: 14,
-    color: colors.subtext,
-    marginBottom: spacing.md,
-  },
-  recommendationContainer: {
-    backgroundColor: colors.warning + '20',
-    padding: spacing.sm,
-    borderRadius: 6,
-    marginBottom: spacing.md,
-  },
-  recommendationText: {
-    fontSize: 12,
-    color: colors.warning,
-    fontStyle: 'italic',
-  },
-  tipsContainer: {
-    backgroundColor: colors.accent1 + '20',
-    padding: spacing.md,
-    borderRadius: 8,
-  },
-  tipItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  tipText: {
     marginLeft: spacing.sm,
-    color: colors.text,
-    fontSize: 14,
   },
+  simpleToolTitle: {
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+  },
+  simpleToolDescription: {
+    fontSize: typography.sizes.sm,
+    color: colors.subtext,
+    marginTop: spacing.xs,
+  },
+  // Modal Styles
   modalContent: {
     backgroundColor: colors.surface,
     margin: spacing.lg,

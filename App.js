@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { 
   Provider as PaperProvider, 
   DefaultTheme,
@@ -14,9 +15,10 @@ import { StatusBar, View, StyleSheet, Text } from 'react-native';
 // Import theme configuration using relative path
 import { colors, typography, spacing, shapes } from './src/config/theme.js';
 
-// Import contexts
+// Import contexts and components
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { supabase } from './src/config/supabase';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -25,11 +27,14 @@ import ScheduleScreen from './src/screens/ScheduleScreen';
 import SensoryScreen from './src/screens/SensoryScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import CognitiveScreen from './src/screens/CognitiveScreen';
+import CognitiveExercisesScreen from './src/screens/CognitiveExercisesScreen';
+import CognitiveProgressScreen from './src/screens/CognitiveProgressScreen';
 import StandardAuthScreen from './src/screens/StandardAuthScreen';
-import OnboardingScreen from './src/screens/OnboardingScreen';
 import SimpleOnboardingScreen from './src/screens/SimpleOnboardingScreen';
+import FullScreenExerciseScreen from './src/screens/FullScreenExerciseScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
 // Custom theme configuration
 const theme = {
@@ -62,7 +67,7 @@ const theme = {
   }),
 };
 
-// Screen configurations with updated aesthetics
+// Screen configurations with updated aesthetics - Reordered by priority
 const screenConfigs = [
   {
     name: 'Home',
@@ -70,6 +75,13 @@ const screenConfigs = [
     icon: 'home',
     label: 'Home',
     color: colors.primary
+  },
+  {
+    name: 'Sensory',
+    component: SensoryScreen,
+    icon: 'wave',
+    label: 'Sensory',
+    color: colors.accent1
   },
   {
     name: 'Tasks',
@@ -86,14 +98,6 @@ const screenConfigs = [
     color: colors.tertiary
   },
   {
-    name: 'Sensory',
-    component: SensoryScreen,
-    icon: 'wave',
-    label: 'Sensory',
-    color: colors.accent1
-  },
-
-  {
     name: 'Cognitive',
     component: CognitiveScreen,
     icon: 'brain',
@@ -101,6 +105,60 @@ const screenConfigs = [
     color: colors.focus
   }
 ];
+
+// Cognitive Stack Navigator
+function CognitiveStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.surface,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.accent3,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontFamily: typography.families.heading,
+          fontWeight: typography.weights.semibold,
+          fontSize: typography.sizes.lg,
+        },
+      }}
+    >
+      <Stack.Screen 
+        name="CognitiveMain" 
+        component={CognitiveScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="CognitiveExercises" 
+        component={CognitiveExercisesScreen}
+        options={({ route }) => ({ 
+          title: route.params?.section?.title || 'Exercises',
+          headerShown: true
+        })}
+      />
+      <Stack.Screen 
+        name="CognitiveProgress" 
+        component={CognitiveProgressScreen}
+        options={{ 
+          title: 'Progress',
+          headerShown: true
+        }}
+      />
+      <Stack.Screen 
+        name="FullScreenExercise" 
+        component={FullScreenExerciseScreen}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animationTypeForReplace: 'push'
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 // Main App Navigation Component
 function AppNavigation() {
@@ -130,21 +188,24 @@ function AppNavigation() {
         screenOptions={{
           tabBarStyle: {
             backgroundColor: colors.surface,
-            height: 60,
-            paddingBottom: spacing.sm,
+            height: 70,
+            paddingBottom: spacing.md,
             paddingTop: spacing.sm,
-            borderTopWidth: 0,
-            elevation: 8,
+            borderTopWidth: 2,
+            borderTopColor: colors.accent3,
+            elevation: 16,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3,
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
           },
           tabBarItemStyle: {
-            padding: spacing.xs,
+            padding: spacing.sm,
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.subtext,
+          tabBarActiveBackgroundColor: colors.highlight,
+          tabBarInactiveBackgroundColor: colors.surface,
           headerStyle: {
             backgroundColor: colors.surface,
             elevation: 0,
@@ -159,9 +220,9 @@ function AppNavigation() {
             fontSize: typography.sizes.lg,
           },
           tabBarLabelStyle: {
-            fontSize: typography.sizes.xs,
+            fontSize: typography.sizes.sm,
             fontFamily: typography.families.regular,
-            fontWeight: typography.weights.medium,
+            fontWeight: typography.weights.semibold,
           },
         }}
       >
@@ -169,7 +230,7 @@ function AppNavigation() {
           <Tab.Screen
             key={screen.name}
             name={screen.name}
-            component={screen.component}
+            component={screen.name === 'Cognitive' ? CognitiveStack : screen.component}
             options={{
               tabBarLabel: screen.label,
               tabBarIcon: ({ color, size, focused }) => (
@@ -182,6 +243,7 @@ function AppNavigation() {
                   }}
                 />
               ),
+              headerShown: false,
               headerTitleAlign: 'center',
             }}
           />
@@ -208,16 +270,15 @@ const styles = StyleSheet.create({
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <StatusBar
-          backgroundColor={colors.background}
-          barStyle="dark-content"
-        />
-        <AuthProvider>
-          <AppNavigation />
-        </AuthProvider>
-      </PaperProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary fallbackMessage="NeuroEase encountered an error. Please restart the app.">
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+          <StatusBar style="auto" />
+          <AuthProvider>
+            <AppNavigation />
+          </AuthProvider>
+        </PaperProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

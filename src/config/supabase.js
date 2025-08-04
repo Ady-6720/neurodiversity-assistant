@@ -2,9 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Get Supabase credentials from environment variables
-// Create a .env.local file with your actual credentials
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://znkmeyufelfhrrmumyzh.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpua21leXVmZWxmaHJybXVteXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMzU0MzgsImV4cCI6MjA2OTgxMTQzOH0.sjHi_a8ytrzfGk3ta6xsQfWpXZxGaAyT3q8d_SISlG8';
+// You MUST create a .env.local file with your actual credentials
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Validate that environment variables are set
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please create a .env.local file with:\n' +
+    'EXPO_PUBLIC_SUPABASE_URL=your_project_url\n' +
+    'EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key\n\n' +
+    'See SUPABASE_SETUP.md for detailed instructions.'
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

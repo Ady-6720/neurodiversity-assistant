@@ -124,6 +124,26 @@ CREATE TABLE IF NOT EXISTS public.sensory_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create cognitive exercises tracking table
+CREATE TABLE IF NOT EXISTS public.cognitive_exercises (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    exercise_id TEXT NOT NULL, -- e.g., 'color-tap', 'number-order', 'big-button'
+    exercise_name TEXT NOT NULL,
+    exercise_type TEXT NOT NULL, -- e.g., 'tap', 'choice', 'timer', 'toggle'
+    section_id TEXT NOT NULL, -- e.g., 'focus', 'organization', 'impulse', 'memory'
+    section_name TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    score INTEGER DEFAULT 0,
+    total_questions INTEGER DEFAULT 0,
+    duration_seconds INTEGER DEFAULT 0,
+    accuracy_percentage DECIMAL(5,2) DEFAULT 0,
+    difficulty_level INTEGER DEFAULT 1 CHECK (difficulty_level BETWEEN 1 AND 5),
+    performance_rating INTEGER CHECK (performance_rating BETWEEN 1 AND 5),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON public.tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);
@@ -132,6 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_schedules_user_id ON public.schedules(user_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_start_time ON public.schedules(start_time);
 CREATE INDEX IF NOT EXISTS idx_focus_sessions_user_id ON public.focus_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_focus_sessions_start_time ON public.focus_sessions(start_time);
+CREATE INDEX IF NOT EXISTS idx_cognitive_exercises_user_id ON public.cognitive_exercises(user_id);
+CREATE INDEX IF NOT EXISTS idx_cognitive_exercises_exercise_id ON public.cognitive_exercises(exercise_id);
+CREATE INDEX IF NOT EXISTS idx_cognitive_exercises_created_at ON public.cognitive_exercises(created_at);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
@@ -142,6 +165,7 @@ ALTER TABLE public.sensory_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.communication_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cognitive_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cognitive_exercises ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies (users can only access their own data)
 CREATE POLICY "Users can view own profile" ON public.user_profiles FOR SELECT USING (auth.uid() = id);
@@ -155,6 +179,7 @@ CREATE POLICY "Users can manage own sensory events" ON public.sensory_events FOR
 CREATE POLICY "Users can manage own focus sessions" ON public.focus_sessions FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own communication templates" ON public.communication_templates FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own cognitive entries" ON public.cognitive_entries FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own cognitive exercises" ON public.cognitive_exercises FOR ALL USING (auth.uid() = user_id);
 
 -- Create function to automatically create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
