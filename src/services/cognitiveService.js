@@ -1,4 +1,14 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  limit as firestoreLimit
+} from 'firebase/firestore';
 
 // Cognitive Exercise Service
 export const cognitiveService = {
@@ -29,26 +39,24 @@ export const cognitiveService = {
       else if (accuracyPercentage >= 70) performanceRating = 3;
       else if (accuracyPercentage >= 60) performanceRating = 2;
 
-      const { data, error } = await supabase
-        .from('cognitive_exercises')
-        .insert({
-          user_id: userId,
-          exercise_id: exerciseId,
-          exercise_name: exerciseName,
-          exercise_type: exerciseType,
-          section_id: sectionId,
-          section_name: sectionName,
-          completed: true,
-          score: score,
-          total_questions: totalQuestions,
-          duration_seconds: durationSeconds,
-          accuracy_percentage: accuracyPercentage,
-          performance_rating: performanceRating,
-          notes: notes
-        });
+      const exerciseRef = await addDoc(collection(db, 'cognitive_exercises'), {
+        user_id: userId,
+        exercise_id: exerciseId,
+        exercise_name: exerciseName,
+        exercise_type: exerciseType,
+        section_id: sectionId,
+        section_name: sectionName,
+        completed: true,
+        score: score,
+        total_questions: totalQuestions,
+        duration_seconds: durationSeconds,
+        accuracy_percentage: accuracyPercentage,
+        performance_rating: performanceRating,
+        notes: notes,
+        created_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data, error: null };
+      return { data: { id: exerciseRef.id }, error: null };
     } catch (error) {
       console.error('Error tracking exercise completion:', error);
       return { data: null, error };
@@ -56,17 +64,18 @@ export const cognitiveService = {
   },
 
   // Get user's exercise history
-  async getExerciseHistory(userId, limit = 20) {
+  async getExerciseHistory(userId, limitCount = 20) {
     try {
-      const { data, error } = await supabase
-        .from('cognitive_exercises')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const q = query(
+        collection(db, 'cognitive_exercises'),
+        where('user_id', '==', userId),
+        orderBy('created_at', 'desc'),
+        firestoreLimit(limitCount)
+      );
 
-      if (error) throw error;
-      return { data, error: null };
+      const querySnapshot = await getDocs(q);
+      const exercises = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: exercises, error: null };
     } catch (error) {
       console.error('Error fetching exercise history:', error);
       return { data: null, error };
@@ -76,19 +85,24 @@ export const cognitiveService = {
   // Get exercise statistics by section
   async getExerciseStats(userId, sectionId = null) {
     try {
-      let query = supabase
-        .from('cognitive_exercises')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('completed', true);
-
+      let q;
       if (sectionId) {
-        query = query.eq('section_id', sectionId);
+        q = query(
+          collection(db, 'cognitive_exercises'),
+          where('user_id', '==', userId),
+          where('completed', '==', true),
+          where('section_id', '==', sectionId)
+        );
+      } else {
+        q = query(
+          collection(db, 'cognitive_exercises'),
+          where('user_id', '==', userId),
+          where('completed', '==', true)
+        );
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       // Calculate statistics
       const stats = {
@@ -138,15 +152,16 @@ export const cognitiveService = {
   // Get exercise performance by type
   async getExerciseTypeStats(userId, exerciseType) {
     try {
-      const { data, error } = await supabase
-        .from('cognitive_exercises')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('exercise_type', exerciseType)
-        .eq('completed', true)
-        .order('created_at', { ascending: false });
+      const q = query(
+        collection(db, 'cognitive_exercises'),
+        where('user_id', '==', userId),
+        where('exercise_type', '==', exerciseType),
+        where('completed', '==', true),
+        orderBy('created_at', 'desc')
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const stats = {
         totalAttempts: data?.length || 0,
@@ -183,14 +198,15 @@ export const cognitiveService = {
   // Get user's progress summary
   async getProgressSummary(userId) {
     try {
-      const { data, error } = await supabase
-        .from('cognitive_exercises')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('completed', true)
-        .order('created_at', { ascending: false });
+      const q = query(
+        collection(db, 'cognitive_exercises'),
+        where('user_id', '==', userId),
+        where('completed', '==', true),
+        orderBy('created_at', 'desc')
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const summary = {
         totalExercises: data?.length || 0,
@@ -216,7 +232,6 @@ export const cognitiveService = {
 
         // Calculate streak days
         const today = new Date();
-        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
         let currentStreak = 0;
         let currentDate = today;
 
@@ -266,10 +281,10 @@ export const cognitiveService = {
         memory: { priority: 'medium', reason: 'Balanced performance' }
       };
 
-      if (history.data && history.data.length > 0) {
+      if (history && history.length > 0) {
         // Analyze performance by section
         const sectionStats = {};
-        history.data.forEach(exercise => {
+        history.forEach(exercise => {
           if (!sectionStats[exercise.section_id]) {
             sectionStats[exercise.section_id] = {
               total: 0,
@@ -329,15 +344,16 @@ export const cognitiveService = {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
-        .from('cognitive_exercises')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('completed', true)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: true });
+      const q = query(
+        collection(db, 'cognitive_exercises'),
+        where('user_id', '==', userId),
+        where('completed', '==', true),
+        where('created_at', '>=', startDate.toISOString()),
+        orderBy('created_at', 'asc')
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const analytics = {
         dailyProgress: [],
@@ -436,4 +452,4 @@ export const cognitiveService = {
   }
 };
 
-export default cognitiveService; 
+export default cognitiveService;

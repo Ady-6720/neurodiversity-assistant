@@ -1,4 +1,17 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit 
+} from 'firebase/firestore';
 
 // Task Service for managing user tasks and to-do items
 export const taskService = {
@@ -14,23 +27,20 @@ export const taskService = {
         estimatedMinutes
       } = taskData;
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: userId,
-          title,
-          description: description || '',
-          priority: priority || 'medium',
-          category: category || 'general',
-          due_date: dueDate,
-          estimated_minutes: estimatedMinutes,
-          completed: false,
-          created_at: new Date().toISOString()
-        })
-        .select();
+      const taskRef = await addDoc(collection(db, 'tasks'), {
+        user_id: userId,
+        title,
+        description: description || '',
+        priority: priority || 'medium',
+        category: category || 'general',
+        due_date: dueDate,
+        estimated_minutes: estimatedMinutes,
+        completed: false,
+        created_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const taskSnap = await getDoc(taskRef);
+      return { data: { id: taskSnap.id, ...taskSnap.data() }, error: null };
     } catch (error) {
       console.error('Error creating task:', error);
       return { data: null, error };
@@ -40,22 +50,31 @@ export const taskService = {
   // Get all tasks for a user
   async getUserTasks(userId, filter = 'all') {
     try {
-      let query = supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      let q = query(
+        collection(db, 'tasks'),
+        where('user_id', '==', userId),
+        orderBy('created_at', 'desc')
+      );
 
       if (filter === 'completed') {
-        query = query.eq('completed', true);
+        q = query(
+          collection(db, 'tasks'),
+          where('user_id', '==', userId),
+          where('completed', '==', true),
+          orderBy('created_at', 'desc')
+        );
       } else if (filter === 'incomplete') {
-        query = query.eq('completed', false);
+        q = query(
+          collection(db, 'tasks'),
+          where('user_id', '==', userId),
+          where('completed', '==', false),
+          orderBy('created_at', 'desc')
+        );
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: tasks, error: null };
     } catch (error) {
       console.error('Error fetching tasks:', error);
       return { data: [], error };
@@ -65,17 +84,14 @@ export const taskService = {
   // Update task
   async updateTask(taskId, updates) {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', taskId)
-        .select();
+      const taskRef = doc(db, 'tasks', taskId);
+      await updateDoc(taskRef, {
+        ...updates,
+        updated_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const taskSnap = await getDoc(taskRef);
+      return { data: { id: taskSnap.id, ...taskSnap.data() }, error: null };
     } catch (error) {
       console.error('Error updating task:', error);
       return { data: null, error };
@@ -96,14 +112,11 @@ export const taskService = {
         updates.completed_at = null;
       }
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .update(updates)
-        .eq('id', taskId)
-        .select();
+      const taskRef = doc(db, 'tasks', taskId);
+      await updateDoc(taskRef, updates);
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const taskSnap = await getDoc(taskRef);
+      return { data: { id: taskSnap.id, ...taskSnap.data() }, error: null };
     } catch (error) {
       console.error('Error toggling task completion:', error);
       return { data: null, error };
@@ -113,12 +126,7 @@ export const taskService = {
   // Delete task
   async deleteTask(taskId) {
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskId);
-
-      if (error) throw error;
+      await deleteDoc(doc(db, 'tasks', taskId));
       return { error: null };
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -133,13 +141,14 @@ export const taskService = {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('completed, priority, category, estimated_minutes, completed_at, created_at')
-        .eq('user_id', userId)
-        .gte('created_at', startDate.toISOString());
+      const q = query(
+        collection(db, 'tasks'),
+        where('user_id', '==', userId),
+        where('created_at', '>=', startDate.toISOString())
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const stats = {
         totalTasks: data.length,
@@ -183,16 +192,21 @@ export const taskService = {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .or(`due_date.eq.${today},created_at.gte.${today}T00:00:00.000Z`)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: true });
+      const q = query(
+        collection(db, 'tasks'),
+        where('user_id', '==', userId),
+        orderBy('created_at', 'asc')
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const tasks = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(task => {
+          const taskDate = task.due_date?.split('T')[0] || task.created_at?.split('T')[0];
+          return taskDate === today;
+        });
+      
+      return { data: tasks, error: null };
     } catch (error) {
       console.error('Error fetching today\'s tasks:', error);
       return { data: [], error };
@@ -204,16 +218,19 @@ export const taskService = {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('completed', false)
-        .lt('due_date', today)
-        .order('due_date', { ascending: true });
+      const q = query(
+        collection(db, 'tasks'),
+        where('user_id', '==', userId),
+        where('completed', '==', false),
+        orderBy('due_date', 'asc')
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const tasks = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(task => task.due_date && task.due_date < today);
+      
+      return { data: tasks, error: null };
     } catch (error) {
       console.error('Error fetching overdue tasks:', error);
       return { data: [], error };

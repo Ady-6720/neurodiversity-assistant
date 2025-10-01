@@ -1,4 +1,16 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDoc,
+  getDocs, 
+  updateDoc,
+  deleteDoc,
+  query, 
+  where, 
+  orderBy 
+} from 'firebase/firestore';
 
 // Schedule Service for managing user schedules and activities
 export const scheduleService = {
@@ -17,26 +29,23 @@ export const scheduleService = {
         date
       } = scheduleData;
 
-      const { data, error } = await supabase
-        .from('schedules')
-        .insert({
-          user_id: userId,
-          title,
-          scheduled_time: time,
-          duration_minutes: parseInt(duration),
-          activity_type: type,
-          icon,
-          notes: notes || '',
-          visual_support: visualSupport,
-          reminder_enabled: reminder,
-          scheduled_date: date,
-          completed: false,
-          created_at: new Date().toISOString()
-        })
-        .select();
+      const scheduleRef = await addDoc(collection(db, 'schedules'), {
+        user_id: userId,
+        title,
+        scheduled_time: time,
+        duration_minutes: parseInt(duration),
+        activity_type: type,
+        icon,
+        notes: notes || '',
+        visual_support: visualSupport,
+        reminder_enabled: reminder,
+        scheduled_date: date,
+        completed: false,
+        created_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const scheduleSnap = await getDoc(scheduleRef);
+      return { data: { id: scheduleSnap.id, ...scheduleSnap.data() }, error: null };
     } catch (error) {
       console.error('Error creating schedule item:', error);
       return { data: null, error };
@@ -46,15 +55,16 @@ export const scheduleService = {
   // Get user's schedule for a specific date
   async getScheduleByDate(userId, date) {
     try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('scheduled_date', date)
-        .order('scheduled_time', { ascending: true });
+      const q = query(
+        collection(db, 'schedules'),
+        where('user_id', '==', userId),
+        where('scheduled_date', '==', date),
+        orderBy('scheduled_time', 'asc')
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const schedules = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: schedules, error: null };
     } catch (error) {
       console.error('Error fetching schedule:', error);
       return { data: [], error };
@@ -64,17 +74,17 @@ export const scheduleService = {
   // Get user's schedule for a date range
   async getScheduleByDateRange(userId, startDate, endDate) {
     try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('scheduled_date', startDate)
-        .lte('scheduled_date', endDate)
-        .order('scheduled_date', { ascending: true })
-        .order('scheduled_time', { ascending: true });
+      const q = query(
+        collection(db, 'schedules'),
+        where('user_id', '==', userId),
+        where('scheduled_date', '>=', startDate),
+        where('scheduled_date', '<=', endDate),
+        orderBy('scheduled_date', 'asc')
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const schedules = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: schedules, error: null };
     } catch (error) {
       console.error('Error fetching schedule range:', error);
       return { data: [], error };
@@ -84,17 +94,14 @@ export const scheduleService = {
   // Update schedule item
   async updateScheduleItem(scheduleId, updates) {
     try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', scheduleId)
-        .select();
+      const scheduleRef = doc(db, 'schedules', scheduleId);
+      await updateDoc(scheduleRef, {
+        ...updates,
+        updated_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const scheduleSnap = await getDoc(scheduleRef);
+      return { data: { id: scheduleSnap.id, ...scheduleSnap.data() }, error: null };
     } catch (error) {
       console.error('Error updating schedule item:', error);
       return { data: null, error };
@@ -104,18 +111,15 @@ export const scheduleService = {
   // Mark schedule item as completed
   async completeScheduleItem(scheduleId) {
     try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .update({
-          completed: true,
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', scheduleId)
-        .select();
+      const scheduleRef = doc(db, 'schedules', scheduleId);
+      await updateDoc(scheduleRef, {
+        completed: true,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const scheduleSnap = await getDoc(scheduleRef);
+      return { data: { id: scheduleSnap.id, ...scheduleSnap.data() }, error: null };
     } catch (error) {
       console.error('Error completing schedule item:', error);
       return { data: null, error };
@@ -125,12 +129,7 @@ export const scheduleService = {
   // Delete schedule item
   async deleteScheduleItem(scheduleId) {
     try {
-      const { error } = await supabase
-        .from('schedules')
-        .delete()
-        .eq('id', scheduleId);
-
-      if (error) throw error;
+      await deleteDoc(doc(db, 'schedules', scheduleId));
       return { error: null };
     } catch (error) {
       console.error('Error deleting schedule item:', error);
@@ -145,14 +144,15 @@ export const scheduleService = {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('completed, activity_type, duration_minutes')
-        .eq('user_id', userId)
-        .gte('scheduled_date', startDate.toISOString().split('T')[0])
-        .lte('scheduled_date', endDate.toISOString().split('T')[0]);
+      const q = query(
+        collection(db, 'schedules'),
+        where('user_id', '==', userId),
+        where('scheduled_date', '>=', startDate.toISOString().split('T')[0]),
+        where('scheduled_date', '<=', endDate.toISOString().split('T')[0])
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const stats = {
         totalScheduled: data.length,

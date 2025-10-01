@@ -13,7 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 const SimpleOnboardingScreen = ({ onComplete }) => {
   const { user, completeOnboarding } = useAuth();
@@ -60,20 +61,19 @@ const SimpleOnboardingScreen = ({ onComplete }) => {
       setLoading(true);
       
       const profileData = {
-        id: user.id,
+        id: user.uid,
         display_name: user.email?.split('@')[0] || 'User',
+        email: user.email,
         preferences: {
           primary_challenges: formData.primaryChallenges,
           onboarding_completed: true,
           onboarding_date: new Date().toISOString(),
-        }
+        },
+        updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('user_profiles')
-        .upsert(profileData);
-
-      if (error) throw error;
+      const profileRef = doc(db, 'user_profiles', user.uid);
+      await setDoc(profileRef, profileData, { merge: true });
 
       // Call completeOnboarding to update the auth state
       console.log('Calling completeOnboarding...');

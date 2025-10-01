@@ -17,7 +17,6 @@ import { colors, typography, spacing, shapes } from './src/config/theme.js';
 
 // Import contexts and components
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
-import { supabase } from './src/config/supabase';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 // Import screens

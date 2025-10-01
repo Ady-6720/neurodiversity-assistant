@@ -1,22 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Animated } from 'react-native';
 import { 
   FAB, 
   Portal, 
   Modal, 
   TextInput, 
   Checkbox,
-  Chip,
-  Divider,
-  List,
   IconButton,
   ActivityIndicator,
-  Snackbar
+  Snackbar,
+  Button,
+  Card,
+  Text
 } from 'react-native-paper';
-import { StyledCard } from '../components/StyledCard';
-import { StyledText } from '../components/StyledText';
-import { StyledButton } from '../components/StyledButton';
-import { colors, spacing, shapes, shadows } from '../config/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, spacing } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { taskService } from '../services/taskService';
 
@@ -25,18 +24,42 @@ const TaskScreen = () => {
   const [tasks, setTasks] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTask, setNewTask] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all', 'incomplete', 'completed'
+  const [filter, setFilter] = useState('all');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Animation for FAB pulse
+  const fabScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     loadTasks();
   }, [user, filter]);
 
-  // Load tasks from backend
+  // Pulse FAB when no tasks
+  useEffect(() => {
+    if (tasks.length === 0 && !loading) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(fabScale, {
+            toValue: 1.1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fabScale, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [tasks.length, loading]);
+
   const loadTasks = async () => {
     if (!user) return;
     
@@ -59,14 +82,12 @@ const TaskScreen = () => {
     }
   };
 
-  // Refresh tasks
   const onRefresh = async () => {
     setRefreshing(true);
     await loadTasks();
     setRefreshing(false);
   };
 
-  // Add new task
   const addTask = async () => {
     if (newTask.trim().length === 0) {
       setErrorMessage('Please enter a task description');
@@ -104,22 +125,24 @@ const TaskScreen = () => {
     }
   };
 
-  // Toggle task completion
   const toggleTask = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
     try {
-      const { data, error } = await taskService.toggleTaskCompletion(taskId, !task.completed);
+      const { error } = await taskService.updateTask(taskId, {
+        completed: !task.completed
+      });
+
       if (error) {
-        console.error('Error toggling task:', error);
+        console.error('Error updating task:', error);
         setSnackbarMessage('Failed to update task');
         setSnackbarVisible(true);
       } else {
         setTasks(tasks.map(t => 
           t.id === taskId ? { ...t, completed: !t.completed } : t
         ));
-        setSnackbarMessage(task.completed ? 'Task marked as incomplete' : 'Task completed!');
+        setSnackbarMessage(task.completed ? 'Task marked incomplete' : 'Task completed!');
         setSnackbarVisible(true);
       }
     } catch (error) {
@@ -129,7 +152,6 @@ const TaskScreen = () => {
     }
   };
 
-  // Delete task
   const deleteTask = async (taskId) => {
     try {
       const { error } = await taskService.deleteTask(taskId);
@@ -138,7 +160,7 @@ const TaskScreen = () => {
         setSnackbarMessage('Failed to delete task');
         setSnackbarVisible(true);
       } else {
-        setTasks(tasks.filter(task => task.id !== taskId));
+        setTasks(tasks.filter(t => t.id !== taskId));
         setSnackbarMessage('Task deleted');
         setSnackbarVisible(true);
       }
@@ -149,94 +171,128 @@ const TaskScreen = () => {
     }
   };
 
-  // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (filter === 'completed') return task.completed;
     if (filter === 'incomplete') return !task.completed;
     return true;
   });
 
-  // Count tasks
   const taskCounts = {
     all: tasks.length,
     completed: tasks.filter(task => task.completed).length,
     incomplete: tasks.filter(task => !task.completed).length
   };
 
+  const getEmptyStateMessage = () => {
+    switch (filter) {
+      case 'completed':
+        return {
+          title: 'No completed tasks',
+          subtitle: 'Complete tasks to see them here'
+        };
+      case 'incomplete':
+        return {
+          title: 'No incomplete tasks',
+          subtitle: 'All caught up! Great work!'
+        };
+      default:
+        return {
+          title: 'No tasks yet',
+          subtitle: 'Stay on track by adding your first task'
+        };
+    }
+  };
+
   const TaskItem = ({ task }) => (
-    <StyledCard style={styles.taskCard}>
-      <View style={styles.taskContent}>
+    <Card style={styles.taskCard}>
+      <Card.Content style={styles.taskContent}>
         <Checkbox.Android
           status={task.completed ? 'checked' : 'unchecked'}
           onPress={() => toggleTask(task.id)}
           color={colors.primary}
         />
         <View style={styles.taskTextContainer}>
-          <StyledText 
+          <Text 
             style={[
               styles.taskText,
               task.completed && styles.completedTask
             ]}
           >
             {task.title}
-          </StyledText>
-          <StyledText variant="caption" style={styles.taskDate}>
+          </Text>
+          <Text style={styles.taskDate}>
             {new Date(task.created_at || task.createdAt).toLocaleDateString()}
-          </StyledText>
+          </Text>
         </View>
         <IconButton
           icon="delete"
           size={20}
-          color={colors.error}
+          iconColor={colors.error}
           onPress={() => deleteTask(task.id)}
         />
-      </View>
-    </StyledCard>
+      </Card.Content>
+    </Card>
   );
 
+  const emptyState = getEmptyStateMessage();
+
   return (
-    <View style={styles.container}>
-      {/* Task Filters */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <Chip
-            selected={filter === 'all'}
-            onPress={() => setFilter('all')}
-            style={styles.filterChip}
-            selectedColor={colors.primary}
-          >
-            All ({taskCounts.all})
-          </Chip>
-          <Chip
-            selected={filter === 'incomplete'}
-            onPress={() => setFilter('incomplete')}
-            style={styles.filterChip}
-            selectedColor={colors.warning}
-          >
-            Incomplete ({taskCounts.incomplete})
-          </Chip>
-          <Chip
-            selected={filter === 'completed'}
-            onPress={() => setFilter('completed')}
-            style={styles.filterChip}
-            selectedColor={colors.success}
-          >
-            Completed ({taskCounts.completed})
-          </Chip>
-        </ScrollView>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Tasks</Text>
+        <Text style={styles.headerSubtitle}>Stay organized and productive</Text>
       </View>
 
-      <Divider />
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
+          onPress={() => setFilter('all')}
+          accessibilityLabel="Show all tasks"
+        >
+          <Text style={[styles.filterNumber, { color: '#3B82F6' }]}>{taskCounts.all}</Text>
+          <Text style={[styles.filterTabText, filter === 'all' && styles.filterTabTextActive]}>
+            All
+          </Text>
+          {filter === 'all' && <View style={styles.filterIndicator} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterTab, filter === 'incomplete' && styles.filterTabActive]}
+          onPress={() => setFilter('incomplete')}
+          accessibilityLabel="Show incomplete tasks"
+        >
+          <Text style={[styles.filterNumber, { color: '#F59E0B' }]}>{taskCounts.incomplete}</Text>
+          <Text style={[styles.filterTabText, filter === 'incomplete' && styles.filterTabTextActive]}>
+            Incomplete
+          </Text>
+          {filter === 'incomplete' && <View style={styles.filterIndicator} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterTab, filter === 'completed' && styles.filterTabActive]}
+          onPress={() => setFilter('completed')}
+          accessibilityLabel="Show completed tasks"
+        >
+          <Text style={[styles.filterNumber, { color: '#10B981' }]}>{taskCounts.completed}</Text>
+          <Text style={[styles.filterTabText, filter === 'completed' && styles.filterTabTextActive]}>
+            Completed
+          </Text>
+          {filter === 'completed' && <View style={styles.filterIndicator} />}
+        </TouchableOpacity>
+      </View>
 
       {/* Task List */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <StyledText style={styles.loadingText}>Loading tasks...</StyledText>
+          <Text style={styles.loadingText}>Loading tasks...</Text>
         </View>
       ) : (
         <ScrollView 
           style={styles.taskList}
+          contentContainerStyle={styles.taskListContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -246,14 +302,27 @@ const TaskScreen = () => {
           }
         >
           {filteredTasks.length === 0 ? (
-            <View style={styles.emptyState}>
-              <StyledText variant="h2" style={styles.emptyStateText}>
-                No {filter} tasks
-              </StyledText>
-              <StyledText variant="caption" style={styles.emptyStateSubtext}>
-                {filter === 'all' ? 'Tap the + button to add a new task' : `No ${filter} tasks found`}
-              </StyledText>
-            </View>
+            <Card style={styles.emptyStateCard}>
+              <Card.Content style={styles.emptyStateContent}>
+                <MaterialCommunityIcons 
+                  name="clipboard-check-outline" 
+                  size={64} 
+                  color={colors.primary}
+                />
+                <Text style={styles.emptyStateTitle}>{emptyState.title}</Text>
+                <Text style={styles.emptyStateSubtitle}>{emptyState.subtitle}</Text>
+                {filter === 'all' && (
+                  <Button 
+                    mode="contained" 
+                    onPress={() => setModalVisible(true)}
+                    style={styles.emptyStateButton}
+                    icon="plus"
+                  >
+                    Add Your First Task
+                  </Button>
+                )}
+              </Card.Content>
+            </Card>
           ) : (
             filteredTasks.map(task => (
               <TaskItem key={task.id} task={task} />
@@ -263,12 +332,15 @@ const TaskScreen = () => {
       )}
 
       {/* Add Task FAB */}
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        color={colors.buttonText}
-        onPress={() => setModalVisible(true)}
-      />
+      <Animated.View style={{ transform: [{ scale: fabScale }] }}>
+        <FAB
+          style={styles.fab}
+          icon="plus"
+          color="#FFFFFF"
+          onPress={() => setModalVisible(true)}
+          accessibilityLabel="Add new task"
+        />
+      </Animated.View>
 
       {/* Add Task Modal */}
       <Portal>
@@ -281,30 +353,28 @@ const TaskScreen = () => {
           }}
           contentContainerStyle={styles.modalContent}
         >
-          <StyledText variant="h2" style={styles.modalTitle}>
-            Add New Task
-          </StyledText>
+          <Text style={styles.modalTitle}>Add New Task</Text>
           
           <TextInput
             value={newTask}
             onChangeText={setNewTask}
-            placeholder="Enter task description"
+            placeholder="What do you need to do?"
             mode="outlined"
             multiline
             numberOfLines={3}
             style={styles.input}
             error={!!errorMessage}
+            outlineColor={colors.primary}
+            activeOutlineColor={colors.primary}
           />
           
           {errorMessage ? (
-            <StyledText style={styles.errorText}>
-              {errorMessage}
-            </StyledText>
+            <Text style={styles.errorText}>{errorMessage}</Text>
           ) : null}
-
-          <View style={styles.modalButtons}>
-            <StyledButton
-              mode="outlined"
+          
+          <View style={styles.modalActions}>
+            <Button 
+              mode="outlined" 
               onPress={() => {
                 setModalVisible(false);
                 setNewTask('');
@@ -313,19 +383,19 @@ const TaskScreen = () => {
               style={styles.modalButton}
             >
               Cancel
-            </StyledButton>
-            <StyledButton
-              mode="contained"
+            </Button>
+            <Button 
+              mode="contained" 
               onPress={addTask}
               style={styles.modalButton}
             >
               Add Task
-            </StyledButton>
+            </Button>
           </View>
         </Modal>
       </Portal>
-      
-      {/* Snackbar for notifications */}
+
+      {/* Snackbar */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
@@ -334,7 +404,7 @@ const TaskScreen = () => {
       >
         {snackbarMessage}
       </Snackbar>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -343,21 +413,89 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: colors.subtext,
+  },
+  // Filter Tabs
   filterContainer: {
-    padding: spacing.sm,
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    justifyContent: 'space-evenly',
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 12,
     backgroundColor: colors.surface,
-    ...shadows.sm,
+    position: 'relative',
   },
-  filterChip: {
-    marginRight: spacing.sm,
-    backgroundColor: colors.cardBg,
+  filterTabActive: {
+    backgroundColor: colors.highlight,
   },
+  filterNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  filterTabText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.subtext,
+  },
+  filterTabTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  filterIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  // Task List
   taskList: {
     flex: 1,
-    padding: spacing.sm,
+  },
+  taskListContent: {
+    padding: spacing.lg,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: 14,
+    color: colors.subtext,
   },
   taskCard: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
   },
   taskContent: {
     flexDirection: 'row',
@@ -369,74 +507,91 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   taskText: {
-    fontSize: 16,
-  },
-  taskDate: {
-    color: colors.subtext,
-    marginTop: spacing.xs,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+    marginBottom: 4,
   },
   completedTask: {
     textDecorationLine: 'line-through',
     color: colors.subtext,
   },
+  taskDate: {
+    fontSize: 12,
+    color: colors.subtext,
+  },
+  // Empty State
+  emptyStateCard: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    marginTop: spacing.xl,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    color: colors.subtext,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyStateButton: {
+    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+  },
+  // FAB
   fab: {
     position: 'absolute',
-    bottom: spacing.lg,
-    right: spacing.lg,
+    margin: spacing.lg,
+    right: 0,
+    bottom: 0,
     backgroundColor: colors.primary,
+    width: 56,
+    height: 56,
   },
+  // Modal
   modalContent: {
     backgroundColor: colors.surface,
-    margin: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: shapes.borderRadius.lg,
+    marginHorizontal: spacing.xl,
+    borderRadius: 20,
+    padding: spacing.xl,
   },
   modalTitle: {
-    marginBottom: spacing.md,
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.lg,
   },
   input: {
+    marginBottom: spacing.md,
     backgroundColor: colors.surface,
-    marginBottom: spacing.sm,
   },
   errorText: {
     color: colors.error,
-    marginBottom: spacing.sm,
+    fontSize: 12,
+    marginBottom: spacing.md,
   },
-  modalButtons: {
+  modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: spacing.md,
     marginTop: spacing.md,
   },
   modalButton: {
     flex: 1,
-    marginHorizontal: spacing.xs,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  emptyStateText: {
-    color: colors.subtext,
-    marginBottom: spacing.sm,
-  },
-  emptyStateSubtext: {
-    color: colors.subtext,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    color: colors.subtext,
+    borderRadius: 12,
   },
   snackbar: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.text,
   },
 });
 

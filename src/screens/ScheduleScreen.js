@@ -1,23 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Animated, Pressable } from 'react-native';
 import { 
   Portal, 
   Modal, 
   FAB, 
-  IconButton, 
-  Avatar,
-  Divider,
-  Switch,
+  IconButton,
   TextInput,
-  List,
   ActivityIndicator,
-  Snackbar
+  Snackbar,
+  Button,
+  Card,
+  Text,
+  Chip
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyledCard } from '../components/StyledCard';
-import { StyledText } from '../components/StyledText';
-import { StyledButton } from '../components/StyledButton';
-import { colors, spacing, shapes, shadows } from '../config/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, spacing } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { scheduleService } from '../services/scheduleService';
 
@@ -26,27 +24,65 @@ const ScheduleScreen = () => {
   const [schedules, setSchedules] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [expandedSections, setExpandedSections] = useState({
+    morning: true,
+    afternoon: true,
+    evening: true
+  });
   const [newActivity, setNewActivity] = useState({
     title: '',
-    time: '',
+    time: '09:00',
     duration: '30',
-    type: 'task', // task, break, meal, therapy, etc.
-    icon: 'calendar-blank',
-    notes: '',
-    visualSupport: true,
-    reminder: true,
+    category: 'work'
   });
+  
+  const scrollViewRef = useRef(null);
+  const fabScale = useRef(new Animated.Value(1)).current;
+  const modalAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadSchedule();
   }, [user, currentDate]);
 
-  // Load schedule from backend
+  // Pulse FAB when no schedules
+  useEffect(() => {
+    if (schedules.length === 0 && !loading) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(fabScale, {
+            toValue: 1.1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fabScale, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [schedules.length, loading]);
+
+  // Animate modal entrance
+  useEffect(() => {
+    if (modalVisible) {
+      Animated.spring(modalAnim, {
+        toValue: 1,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      modalAnim.setValue(0);
+    }
+  }, [modalVisible]);
+
   const loadSchedule = async () => {
     if (!user) return;
     
@@ -56,343 +92,470 @@ const ScheduleScreen = () => {
       const { data, error } = await scheduleService.getScheduleByDate(user.id, dateString);
       if (error) {
         console.error('Error loading schedule:', error);
-        setSnackbarMessage('Failed to load schedule');
-        setSnackbarVisible(true);
       } else {
         setSchedules(data || []);
       }
     } catch (error) {
       console.error('Error loading schedule:', error);
-      setSnackbarMessage('Failed to load schedule');
-      setSnackbarVisible(true);
     } finally {
       setLoading(false);
     }
   };
 
-  // Refresh schedule
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadSchedule();
-    setRefreshing(false);
-  };
-
-  // Predefined activity types with icons and colors
-  const activityTypes = [
-    { label: 'Task', value: 'task', icon: 'checkbox-marked-outline', color: colors.primary },
-    { label: 'Break', value: 'break', icon: 'coffee', color: colors.accent1 },
-    { label: 'Meal', value: 'meal', icon: 'food', color: colors.accent2 },
-    { label: 'Therapy', value: 'therapy', icon: 'heart', color: colors.tertiary },
-    { label: 'Exercise', value: 'exercise', icon: 'run', color: colors.success },
-    { label: 'Social', value: 'social', icon: 'account-group', color: colors.focus },
-    { label: 'Learning', value: 'learning', icon: 'book-open-variant', color: colors.memory },
-    { label: 'Relaxation', value: 'relaxation', icon: 'meditation', color: colors.planning },
-  ];
-
-  // Time slots for the day
-  const timeSlots = Array.from({ length: 24 }, (_, i) => {
-    const hour = i.toString().padStart(2, '0');
-    return `${hour}:00`;
-  });
-
   const addActivity = async () => {
-    if (!newActivity.title || !newActivity.time) return;
-    if (!user) {
-      setSnackbarMessage('User not authenticated');
+    // Validation
+    if (!newActivity.title.trim()) {
+      setSnackbarMessage('Enter an event title');
       setSnackbarVisible(true);
       return;
     }
 
+    const dur = parseInt(newActivity.duration, 10);
+    if (!dur || dur <= 0 || dur > 480) {
+      setSnackbarMessage('Duration must be between 5 and 480 minutes');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    if (!user) return;
+
     try {
       const scheduleData = {
-        ...newActivity,
+        title: newActivity.title.trim(),
+        time: newActivity.time,
+        duration: dur,
+        category: newActivity.category,
         date: currentDate.toISOString().split('T')[0]
       };
 
       const { data, error } = await scheduleService.createScheduleItem(user.id, scheduleData);
       if (error) {
-        console.error('Error creating schedule item:', error);
-        setSnackbarMessage('Failed to create activity');
-        setSnackbarVisible(true);
+        setSnackbarMessage('Failed to add activity');
       } else {
         setSchedules([...schedules, data]);
+        setNewActivity({ title: '', time: '09:00', duration: '30', category: 'work' });
         setModalVisible(false);
-        resetNewActivity();
-        setSnackbarMessage('Activity added successfully');
-        setSnackbarVisible(true);
+        setSnackbarMessage('Activity added');
       }
+      setSnackbarVisible(true);
     } catch (error) {
-      console.error('Error creating schedule item:', error);
-      setSnackbarMessage('Failed to create activity');
+      setSnackbarMessage('Failed to add activity');
       setSnackbarVisible(true);
     }
   };
 
-  const resetNewActivity = () => {
-    setNewActivity({
-      title: '',
-      time: '',
-      duration: '30',
-      type: 'task',
-      icon: 'calendar-blank',
-      notes: '',
-      visualSupport: true,
-      reminder: true,
+  const deleteActivity = async (id) => {
+    try {
+      const { error } = await scheduleService.deleteScheduleItem(id);
+      if (error) {
+        setSnackbarMessage('Failed to delete activity');
+      } else {
+        setSchedules(schedules.filter(s => s.id !== id));
+        setSnackbarMessage('Activity deleted');
+      }
+      setSnackbarVisible(true);
+    } catch (error) {
+      setSnackbarMessage('Failed to delete activity');
+      setSnackbarVisible(true);
+    }
+  };
+
+  const changeDate = (days) => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + days);
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const isToday = () => {
+    const today = new Date();
+    return currentDate.toDateString() === today.toDateString();
+  };
+
+  const getCurrentHour = () => {
+    return new Date().getHours();
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
-  const TimeSlotCard = ({ time, activities }) => {
-    const currentHour = new Date().getHours();
-    const timeHour = parseInt(time.split(':')[0]);
-    const isCurrentHour = timeHour === currentHour;
-    
+  const getCategoryColor = (category) => {
+    const colors = {
+      work: { bg: '#EFF6FF', text: '#3B82F6', icon: 'briefcase' },
+      health: { bg: '#ECFDF5', text: '#10B981', icon: 'heart-pulse' },
+      focus: { bg: '#F5F3FF', text: '#8B5CF6', icon: 'brain' },
+      break: { bg: '#FFF7ED', text: '#F59E0B', icon: 'coffee' },
+      social: { bg: '#FDF2F8', text: '#EC4899', icon: 'account-group' },
+    };
+    return colors[category] || colors.work;
+  };
+
+  const getSchedulesBySection = () => {
+    const morning = schedules.filter(s => {
+      const hour = parseInt(s.time.split(':')[0]);
+      return hour >= 6 && hour < 12;
+    });
+    const afternoon = schedules.filter(s => {
+      const hour = parseInt(s.time.split(':')[0]);
+      return hour >= 12 && hour < 18;
+    });
+    const evening = schedules.filter(s => {
+      const hour = parseInt(s.time.split(':')[0]);
+      return hour >= 18 || hour < 6;
+    });
+    return { morning, afternoon, evening };
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const sections = getSchedulesBySection();
+  const currentHour = getCurrentHour();
+
+  const ScheduleItem = ({ schedule }) => {
+    const categoryStyle = getCategoryColor(schedule.category);
     return (
-      <StyledCard 
-        style={[
-          styles.timeSlotCard,
-          isCurrentHour && styles.currentTimeSlot
-        ]}
-      >
-        <View style={styles.timeHeader}>
-          <StyledText variant="h3" style={styles.timeText}>
-            {time}
-          </StyledText>
-          <IconButton
-            icon="plus-circle-outline"
-            size={24}
-            color={colors.primary}
-            onPress={() => {
-              setSelectedTimeSlot(time);
-              setNewActivity(prev => ({ ...prev, time }));
-              setModalVisible(true);
-            }}
-          />
-        </View>
-        {activities?.map(activity => (
-          <View key={activity.id} style={styles.activityItem}>
-            <Avatar.Icon
-              size={40}
-              icon={activity.icon}
-              style={{ backgroundColor: activityTypes.find(t => t.value === activity.type)?.color }}
-            />
-            <View style={styles.activityContent}>
-              <StyledText style={styles.activityTitle}>
-                {activity.title}
-              </StyledText>
-              <StyledText variant="caption">
-                Duration: {activity.duration} minutes
-              </StyledText>
-              {activity.visualSupport && (
-                <View style={styles.visualSupport}>
-                  <MaterialCommunityIcons
-                    name={activityTypes.find(t => t.value === activity.type)?.icon}
-                    size={24}
-                    color={activityTypes.find(t => t.value === activity.type)?.color}
-                  />
-                  <StyledText variant="caption" style={styles.visualSupportText}>
-                    {activityTypes.find(t => t.value === activity.type)?.label}
-                  </StyledText>
-                </View>
-              )}
-            </View>
+      <Card style={[styles.scheduleCard, { backgroundColor: categoryStyle.bg }]}>
+        <Card.Content style={styles.scheduleContent}>
+          <View style={styles.scheduleTime}>
+            <Text style={styles.timeText}>{schedule.time}</Text>
+            <Text style={styles.durationText}>{schedule.duration}m</Text>
           </View>
-        ))}
-      </StyledCard>
+          <View style={styles.scheduleInfo}>
+            <View style={styles.scheduleHeader}>
+              <MaterialCommunityIcons 
+                name={categoryStyle.icon} 
+                size={18} 
+                color={categoryStyle.text}
+              />
+              <Text style={[styles.scheduleTitle, { color: categoryStyle.text }]}>
+                {schedule.title}
+              </Text>
+            </View>
+            <Text style={styles.categoryLabel}>{schedule.category}</Text>
+          </View>
+          <IconButton
+            icon="close"
+            size={18}
+            iconColor={colors.subtext}
+            onPress={() => deleteActivity(schedule.id)}
+          />
+        </Card.Content>
+      </Card>
     );
   };
 
+  const SectionHeader = ({ title, count, section, timeRange }) => (
+    <TouchableOpacity 
+      style={styles.sectionHeader}
+      onPress={() => toggleSection(section)}
+    >
+      <View style={styles.sectionHeaderLeft}>
+        <MaterialCommunityIcons 
+          name={expandedSections[section] ? 'chevron-down' : 'chevron-right'} 
+          size={24} 
+          color={colors.text}
+        />
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionTime}>{timeRange}</Text>
+      </View>
+      <View style={styles.sectionBadge}>
+        <Text style={styles.sectionBadgeText}>{count}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <View style={styles.container}>
-      {/* Date Navigation */}
-      <View style={styles.dateNav}>
-        <IconButton
-          icon="chevron-left"
-          size={28}
-          color={colors.primary}
-          onPress={() => {
-            const newDate = new Date(currentDate);
-            newDate.setDate(currentDate.getDate() - 1);
-            setCurrentDate(newDate);
-          }}
-        />
-        <StyledText variant="h2" style={styles.dateText}>
-          {currentDate.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </StyledText>
-        <IconButton
-          icon="chevron-right"
-          size={28}
-          color={colors.primary}
-          onPress={() => {
-            const newDate = new Date(currentDate);
-            newDate.setDate(currentDate.getDate() + 1);
-            setCurrentDate(newDate);
-          }}
-        />
+    <SafeAreaView style={styles.container}>
+      {/* Header with Date Navigation */}
+      <View style={styles.header}>
+        <View style={styles.dateNav}>
+          <IconButton
+            icon="chevron-left"
+            size={24}
+            onPress={() => changeDate(-1)}
+          />
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateText}>{formatDate(currentDate)}</Text>
+            {!isToday() && (
+              <Button 
+                mode="text" 
+                onPress={goToToday}
+                compact
+                labelStyle={styles.todayButtonLabel}
+              >
+                Today
+              </Button>
+            )}
+          </View>
+          <IconButton
+            icon="chevron-right"
+            size={24}
+            onPress={() => changeDate(1)}
+          />
+        </View>
       </View>
 
-      <Divider />
-
-      {/* Schedule Timeline */}
+      {/* Schedule Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <StyledText style={styles.loadingText}>Loading schedule...</StyledText>
+          <Text style={styles.loadingText}>Loading schedule...</Text>
         </View>
+      ) : schedules.length === 0 ? (
+        <ScrollView contentContainerStyle={styles.emptyContainer}>
+          <Card style={styles.emptyCard}>
+            <Card.Content style={styles.emptyContent}>
+              <MaterialCommunityIcons 
+                name="calendar-blank" 
+                size={64} 
+                color={colors.primary}
+              />
+              <Text style={styles.emptyTitle}>Your schedule is clear today</Text>
+              <Text style={styles.emptySubtitle}>
+                Tap + to plan something and stay organized
+              </Text>
+              <Button 
+                mode="contained" 
+                onPress={() => setModalVisible(true)}
+                style={styles.emptyButton}
+                icon="plus"
+              >
+                Add First Activity
+              </Button>
+            </Card.Content>
+          </Card>
+        </ScrollView>
       ) : (
         <ScrollView 
-          style={styles.timeline}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-            />
-          }
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
         >
-          {timeSlots.map(time => (
-            <TimeSlotCard
-              key={time}
-              time={time}
-              activities={schedules.filter(a => a.scheduled_time === time || a.time === time)}
-            />
-          ))}
+          {/* Morning Section */}
+          <SectionHeader 
+            title="Morning" 
+            count={sections.morning.length}
+            section="morning"
+            timeRange="6 AM - 12 PM"
+          />
+          {expandedSections.morning && (
+            <View style={styles.sectionContent}>
+              {sections.morning.length > 0 ? (
+                sections.morning.map(schedule => (
+                  <ScheduleItem key={schedule.id} schedule={schedule} />
+                ))
+              ) : (
+                <Text style={styles.emptySection}>No activities scheduled</Text>
+              )}
+            </View>
+          )}
+
+          {/* Afternoon Section */}
+          <SectionHeader 
+            title="Afternoon" 
+            count={sections.afternoon.length}
+            section="afternoon"
+            timeRange="12 PM - 6 PM"
+          />
+          {expandedSections.afternoon && (
+            <View style={styles.sectionContent}>
+              {sections.afternoon.length > 0 ? (
+                sections.afternoon.map(schedule => (
+                  <ScheduleItem key={schedule.id} schedule={schedule} />
+                ))
+              ) : (
+                <Text style={styles.emptySection}>No activities scheduled</Text>
+              )}
+            </View>
+          )}
+
+          {/* Evening Section */}
+          <SectionHeader 
+            title="Evening" 
+            count={sections.evening.length}
+            section="evening"
+            timeRange="6 PM - 12 AM"
+          />
+          {expandedSections.evening && (
+            <View style={styles.sectionContent}>
+              {sections.evening.length > 0 ? (
+                sections.evening.map(schedule => (
+                  <ScheduleItem key={schedule.id} schedule={schedule} />
+                ))
+              ) : (
+                <Text style={styles.emptySection}>No activities scheduled</Text>
+              )}
+            </View>
+          )}
         </ScrollView>
+      )}
+
+      {/* FAB - Only show when modal is closed */}
+      {!modalVisible && (
+        <Animated.View style={{ transform: [{ scale: fabScale }] }}>
+          <FAB
+            style={styles.fab}
+            icon="plus"
+            color="#FFFFFF"
+            onPress={() => setModalVisible(true)}
+          />
+        </Animated.View>
       )}
 
       {/* Add Activity Modal */}
       <Portal>
         <Modal
           visible={modalVisible}
-          onDismiss={() => {
-            setModalVisible(false);
-            resetNewActivity();
-          }}
-          contentContainerStyle={styles.modalContent}
+          onDismiss={() => setModalVisible(false)}
+          dismissable
+          style={styles.modalOverlay}
         >
-          <ScrollView>
-            <StyledText variant="h2" style={styles.modalTitle}>
-              Add Activity
-            </StyledText>
-
+          {/* Backdrop */}
+          <Pressable 
+            style={styles.backdrop} 
+            onPress={() => setModalVisible(false)}
+          />
+          
+          {/* Modal Card */}
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                opacity: modalAnim,
+                transform: [{
+                  translateY: modalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                }],
+              },
+            ]}
+          >
+            <Text style={styles.modalTitle}>Add to Schedule</Text>
+            
+            <Text style={styles.label}>Time</Text>
             <TextInput
-              label="Activity Title"
-              value={newActivity.title}
-              onChangeText={text => setNewActivity(prev => ({ ...prev, title: text }))}
+              value={newActivity.time}
+              onChangeText={(text) => setNewActivity({...newActivity, time: text})}
+              placeholder="09:00"
               mode="outlined"
               style={styles.input}
+              accessibilityLabel="Event time"
             />
 
-            <List.Section>
-              <List.Subheader>Activity Type</List.Subheader>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.activityTypeContainer}>
-                  {activityTypes.map(type => (
-                    <StyledButton
-                      key={type.value}
-                      mode={newActivity.type === type.value ? "contained" : "outlined"}
-                      onPress={() => setNewActivity(prev => ({ 
-                        ...prev, 
-                        type: type.value,
-                        icon: type.icon
-                      }))}
-                      style={[
-                        styles.typeButton,
-                        newActivity.type === type.value && { backgroundColor: type.color }
-                      ]}
-                      icon={type.icon}
-                    >
-                      {type.label}
-                    </StyledButton>
-                  ))}
-                </View>
-              </ScrollView>
-            </List.Section>
-
+            <Text style={styles.label}>Duration</Text>
+            <View style={styles.durationChips}>
+              {['15', '30', '45', '60'].map(min => (
+                <Chip
+                  key={min}
+                  selected={newActivity.duration === min}
+                  onPress={() => setNewActivity({...newActivity, duration: min})}
+                  style={styles.durationChip}
+                >
+                  {min}m
+                </Chip>
+              ))}
+            </View>
             <TextInput
-              label="Duration (minutes)"
               value={newActivity.duration}
-              onChangeText={text => setNewActivity(prev => ({ ...prev, duration: text }))}
+              onChangeText={(text) => setNewActivity({...newActivity, duration: text})}
+              placeholder="30"
+              mode="outlined"
               keyboardType="numeric"
-              mode="outlined"
               style={styles.input}
+              accessibilityLabel="Duration in minutes"
             />
 
+            <Text style={styles.label}>What's happening?</Text>
             <TextInput
-              label="Notes (Optional)"
-              value={newActivity.notes}
-              onChangeText={text => setNewActivity(prev => ({ ...prev, notes: text }))}
+              value={newActivity.title}
+              onChangeText={(text) => setNewActivity({...newActivity, title: text})}
+              placeholder="e.g., Team meeting"
               mode="outlined"
-              multiline
-              numberOfLines={3}
               style={styles.input}
+              autoFocus
+              accessibilityLabel="Event title"
             />
 
-            <View style={styles.switchContainer}>
-              <View style={styles.switchItem}>
-                <StyledText>Visual Support</StyledText>
-                <Switch
-                  value={newActivity.visualSupport}
-                  onValueChange={value => 
-                    setNewActivity(prev => ({ ...prev, visualSupport: value }))
-                  }
-                />
-              </View>
-              <View style={styles.switchItem}>
-                <StyledText>Reminder</StyledText>
-                <Switch
-                  value={newActivity.reminder}
-                  onValueChange={value => 
-                    setNewActivity(prev => ({ ...prev, reminder: value }))
-                  }
-                />
-              </View>
+            <Text style={styles.label}>Category</Text>
+            <View style={styles.categoryGrid}>
+              {['work', 'health', 'focus', 'break', 'social'].map(cat => {
+                const style = getCategoryColor(cat);
+                const isSelected = newActivity.category === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: style.bg },
+                      isSelected && styles.categoryChipActive
+                    ]}
+                    onPress={() => setNewActivity({...newActivity, category: cat})}
+                    accessibilityLabel={`${cat} category`}
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <MaterialCommunityIcons 
+                      name={style.icon} 
+                      size={16} 
+                      color={style.text}
+                    />
+                    <Text style={[styles.categoryChipText, { color: style.text }]}>
+                      {cat}
+                    </Text>
+                    {isSelected && (
+                      <MaterialCommunityIcons 
+                        name="check" 
+                        size={14} 
+                        color={style.text}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <View style={styles.modalButtons}>
-              <StyledButton
-                mode="outlined"
-                onPress={() => {
-                  setModalVisible(false);
-                  resetNewActivity();
-                }}
+            <View style={styles.actionsBar}>
+              <Button 
+                mode="outlined" 
+                onPress={() => setModalVisible(false)}
                 style={styles.modalButton}
               >
                 Cancel
-              </StyledButton>
-              <StyledButton
-                mode="contained"
+              </Button>
+              <Button 
+                mode="contained" 
                 onPress={addActivity}
                 style={styles.modalButton}
               >
-                Add Activity
-              </StyledButton>
+                Add
+              </Button>
             </View>
-          </ScrollView>
+          </Animated.View>
         </Modal>
       </Portal>
-      
-      {/* Snackbar for notifications */}
+
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={styles.snackbar}
       >
         {snackbarMessage}
       </Snackbar>
-
-      {/* FAB for quick add */}
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        onPress={() => setModalVisible(true)}
-        color={colors.buttonText}
-      />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -401,124 +564,262 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
-    ...shadows.sm,
+  },
+  dateContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   dateText: {
-    flex: 1,
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
   },
-  timeline: {
-    flex: 1,
-    padding: spacing.sm,
-  },
-  timeSlotCard: {
-    marginBottom: spacing.sm,
-  },
-  currentTimeSlot: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  timeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  timeText: {
-    color: colors.text,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    padding: spacing.sm,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.accent3,
-  },
-  activityContent: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  activityTitle: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  visualSupport: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  visualSupportText: {
-    marginLeft: spacing.xs,
-    color: colors.subtext,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
-    backgroundColor: colors.primary,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    margin: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: shapes.borderRadius.lg,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
-  },
-  activityTypeContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  typeButton: {
-    marginRight: spacing.sm,
-  },
-  switchContainer: {
-    marginVertical: spacing.md,
-  },
-  switchItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-  },
-  modalButton: {
-    flex: 1,
-    marginHorizontal: spacing.xs,
+  todayButtonLabel: {
+    fontSize: 12,
+    color: colors.primary,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
   },
   loadingText: {
     marginTop: spacing.md,
     color: colors.subtext,
   },
-  snackbar: {
-    backgroundColor: colors.surface,
+  emptyContainer: {
+    flex: 1,
+    padding: spacing.xl,
+    justifyContent: 'center',
+  },
+  emptyCard: {
+    borderRadius: 20,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: colors.subtext,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+    paddingHorizontal: spacing.md,
+  },
+  emptyButton: {
+    borderRadius: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: 100,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginLeft: spacing.xs,
+  },
+  sectionTime: {
+    fontSize: 13,
+    color: colors.subtext,
+    marginLeft: spacing.sm,
+  },
+  sectionBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  sectionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  sectionContent: {
+    marginBottom: spacing.lg,
+  },
+  emptySection: {
+    fontSize: 14,
+    color: colors.subtext,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
+  },
+  scheduleCard: {
+    marginBottom: spacing.md,
+    borderRadius: 16,
+    elevation: 2,
+  },
+  scheduleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.sm,
+  },
+  scheduleTime: {
+    marginRight: spacing.md,
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  durationText: {
+    fontSize: 11,
+    color: colors.subtext,
+  },
+  scheduleInfo: {
+    flex: 1,
+  },
+  scheduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  scheduleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  categoryLabel: {
+    fontSize: 12,
+    color: colors.subtext,
+    textTransform: 'capitalize',
+  },
+  fab: {
+    position: 'absolute',
+    margin: spacing.lg,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: spacing.lg,
+    borderRadius: 16,
+    padding: spacing.lg,
+    width: '90%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+    marginTop: spacing.sm,
+  },
+  input: {
+    marginBottom: spacing.xs,
+    backgroundColor: '#FFFFFF',
+  },
+  durationChips: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  durationChip: {
+    marginRight: 4,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: spacing.sm,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    marginBottom: spacing.xs,
+    minWidth: '30%',
+    justifyContent: 'center',
+  },
+  categoryChipActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    backgroundColor: '#EEF4FF',
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  actionsBar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+  },
+  modalButton: {
+    flex: 1,
+    borderRadius: 12,
   },
 });
 

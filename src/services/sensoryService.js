@@ -1,4 +1,5 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { collection, doc, addDoc, getDocs, setDoc, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 // Sensory Tools and Strategies Data
 export const sensoryToolsData = {
@@ -185,13 +186,10 @@ export const sensoryService = {
   // Get user's sensory preferences
   async getUserPreferences(userId) {
     try {
-      const { data, error } = await supabase
-        .from('sensory_preferences')
-        .select('*')
-        .eq('user_id', userId);
-
-      if (error) throw error;
-      return { data, error: null };
+      const q = query(collection(db, 'sensory_preferences'), where('user_id', '==', userId));
+      const querySnapshot = await getDocs(q);
+      const preferences = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: preferences, error: null };
     } catch (error) {
       console.error('Error fetching sensory preferences:', error);
       return { data: null, error };
@@ -199,23 +197,19 @@ export const sensoryService = {
   },
 
   // Save or update sensory preference
-  async saveSensoryPreference(userId, sensoryType, sensitivityLevel, triggers = [], copingStrategies = []) {
+  async saveSensoryPreference(userId, sensoryType, sensitivityLevel, triggers = [], copeStrategies = []) {
     try {
-      const { data, error } = await supabase
-        .from('sensory_preferences')
-        .upsert({
-          user_id: userId,
-          sensory_type: sensoryType,
-          sensitivity_level: sensitivityLevel,
-          triggers,
-          coping_strategies: copingStrategies,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,sensory_type'
-        });
-
-      if (error) throw error;
-      return { data, error: null };
+      const docId = `${userId}_${sensoryType}`;
+      const prefRef = doc(db, 'sensory_preferences', docId);
+      await setDoc(prefRef, {
+        user_id: userId,
+        sensory_type: sensoryType,
+        sensitivity_level: sensitivityLevel,
+        triggers,
+        cope_strategies: copeStrategies,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+      return { data: { id: docId }, error: null };
     } catch (error) {
       console.error('Error saving sensory preference:', error);
       return { data: null, error };
@@ -253,20 +247,16 @@ export const sensoryService = {
   // Track sensory overload event
   async trackSensoryEvent(userId, sensoryType, intensity, triggers, copingStrategies, notes = '') {
     try {
-      const { data, error } = await supabase
-        .from('sensory_events')
-        .insert({
-          user_id: userId,
-          sensory_type: sensoryType,
-          intensity_level: intensity,
-          triggers,
-          coping_strategies: copingStrategies,
-          notes,
-          created_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      return { data, error: null };
+      const eventRef = await addDoc(collection(db, 'sensory_events'), {
+        user_id: userId,
+        sensory_type: sensoryType,
+        intensity_level: intensity,
+        triggers,
+        coping_strategies: copingStrategies,
+        notes,
+        created_at: new Date().toISOString()
+      });
+      return { data: { id: eventRef.id }, error: null };
     } catch (error) {
       console.error('Error tracking sensory event:', error);
       return { data: null, error };
@@ -274,17 +264,17 @@ export const sensoryService = {
   },
 
   // Get user's sensory history
-  async getSensoryHistory(userId, limit = 10) {
+  async getSensoryHistory(userId, limitCount = 10) {
     try {
-      const { data, error } = await supabase
-        .from('sensory_events')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return { data, error: null };
+      const q = query(
+        collection(db, 'sensory_events'),
+        where('user_id', '==', userId),
+        orderBy('created_at', 'desc'),
+        firestoreLimit(limitCount)
+      );
+      const querySnapshot = await getDocs(q);
+      const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: events, error: null };
     } catch (error) {
       console.error('Error fetching sensory history:', error);
       return { data: null, error };

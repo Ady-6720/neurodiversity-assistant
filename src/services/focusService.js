@@ -1,4 +1,5 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/firebase';
+import { collection, doc, addDoc, getDoc, getDocs, updateDoc, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 // Focus Service for managing user focus sessions and productivity tracking
 export const focusService = {
@@ -13,23 +14,19 @@ export const focusService = {
         notes
       } = sessionData;
 
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .insert({
-          user_id: userId,
-          session_type: sessionType,
-          planned_duration_minutes: plannedDuration,
-          actual_duration_minutes: actualDuration,
-          completed: completed,
-          notes: notes || '',
-          started_at: new Date().toISOString(),
-          completed_at: completed ? new Date().toISOString() : null,
-          created_at: new Date().toISOString()
-        })
-        .select();
+      const sessionRef = await addDoc(collection(db, 'focus_sessions'), {
+        user_id: userId,
+        session_type: sessionType,
+        planned_duration_minutes: plannedDuration,
+        actual_duration_minutes: actualDuration,
+        completed: completed,
+        notes: notes || '',
+        started_at: new Date().toISOString(),
+        completed_at: completed ? new Date().toISOString() : null,
+        created_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      return { data: { id: sessionRef.id }, error: null };
     } catch (error) {
       console.error('Error creating focus session:', error);
       return { data: null, error };
@@ -39,17 +36,14 @@ export const focusService = {
   // Update focus session (when completed)
   async updateFocusSession(sessionId, updates) {
     try {
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId)
-        .select();
+      const sessionRef = doc(db, 'focus_sessions', sessionId);
+      await updateDoc(sessionRef, {
+        ...updates,
+        updated_at: new Date().toISOString()
+      });
 
-      if (error) throw error;
-      return { data: data?.[0], error: null };
+      const sessionSnap = await getDoc(sessionRef);
+      return { data: { id: sessionSnap.id, ...sessionSnap.data() }, error: null };
     } catch (error) {
       console.error('Error updating focus session:', error);
       return { data: null, error };
@@ -57,17 +51,18 @@ export const focusService = {
   },
 
   // Get user's focus sessions
-  async getUserFocusSessions(userId, limit = 50) {
+  async getUserFocusSessions(userId, limitCount = 50) {
     try {
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('started_at', { ascending: false })
-        .limit(limit);
+      const q = query(
+        collection(db, 'focus_sessions'),
+        where('user_id', '==', userId),
+        orderBy('started_at', 'desc'),
+        firestoreLimit(limitCount)
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const sessions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: sessions, error: null };
     } catch (error) {
       console.error('Error fetching focus sessions:', error);
       return { data: [], error };
@@ -81,14 +76,15 @@ export const focusService = {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .select('session_type, planned_duration_minutes, actual_duration_minutes, completed, started_at')
-        .eq('user_id', userId)
-        .gte('started_at', startDate.toISOString())
-        .lte('started_at', endDate.toISOString());
+      const q = query(
+        collection(db, 'focus_sessions'),
+        where('user_id', '==', userId),
+        where('started_at', '>=', startDate.toISOString()),
+        where('started_at', '<=', endDate.toISOString())
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const stats = {
         totalSessions: data.length,
@@ -151,16 +147,17 @@ export const focusService = {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('started_at', `${today}T00:00:00.000Z`)
-        .lt('started_at', `${today}T23:59:59.999Z`)
-        .order('started_at', { ascending: false });
+      const q = query(
+        collection(db, 'focus_sessions'),
+        where('user_id', '==', userId),
+        where('started_at', '>=', `${today}T00:00:00.000Z`),
+        where('started_at', '<', `${today}T23:59:59.999Z`),
+        orderBy('started_at', 'desc')
+      );
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      const querySnapshot = await getDocs(q);
+      const sessions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { data: sessions, error: null };
     } catch (error) {
       console.error('Error fetching today\'s focus sessions:', error);
       return { data: [], error };
@@ -170,14 +167,15 @@ export const focusService = {
   // Get focus streaks and achievements
   async getFocusAchievements(userId) {
     try {
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .select('started_at, completed')
-        .eq('user_id', userId)
-        .eq('completed', true)
-        .order('started_at', { ascending: true });
+      const q = query(
+        collection(db, 'focus_sessions'),
+        where('user_id', '==', userId),
+        where('completed', '==', true),
+        orderBy('started_at', 'asc')
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
 
       const achievements = {
         currentStreak: 0,

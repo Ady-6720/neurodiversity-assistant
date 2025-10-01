@@ -1,6 +1,18 @@
 // src/contexts/AuthContext.js
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../config/supabase';
+import { auth, db } from '../config/firebase';
+import { 
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc 
+} from 'firebase/firestore';
 
 const AuthContext = createContext({});
 
@@ -21,37 +33,22 @@ export const AuthProvider = ({ children }) => {
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        setError(null);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Failed to get initial session:', error);
-        setError('Failed to connect to authentication service. Please check your internet connection.');
-        setIsOnline(false);
-        setLoading(false);
-      });
-
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // Add id property for compatibility with existing code
+      if (currentUser) {
+        currentUser.id = currentUser.uid;
+      }
       setUser(currentUser);
       
       // Load profile if user exists
       if (currentUser) {
         try {
-          const { data: profileData } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+          const profileRef = doc(db, 'user_profiles', currentUser.uid);
+          const profileSnap = await getDoc(profileRef);
           
-          if (profileData) {
+          if (profileSnap.exists()) {
+            const profileData = profileSnap.data();
             setProfile(profileData);
             // Check if onboarding is completed
             const onboardingCompleted = profileData.preferences?.onboarding_completed || false;
@@ -59,23 +56,30 @@ export const AuthProvider = ({ children }) => {
             console.log('Onboarding completed:', onboardingCompleted);
             setNeedsOnboarding(!onboardingCompleted);
           } else {
-            // New user - needs onboarding
-            setProfile({ display_name: currentUser.email?.split('@')[0] });
+            // New user - create profile and needs onboarding
+            const newProfile = {
+              id: currentUser.uid,
+              display_name: currentUser.email?.split('@')[0] || 'User',
+              email: currentUser.email,
+              neurodiversity_type: [],
+              preferences: {},
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            await setDoc(profileRef, newProfile);
+            setProfile(newProfile);
             setNeedsOnboarding(true);
           }
+          setError(null);
         } catch (error) {
           console.error('Error loading user profile:', error);
-          // Check if it's a network error or new user
-          if (error.message?.includes('PGRST116') || error.code === 'PGRST116') {
-            // New user - profile doesn't exist yet
-            setProfile({ display_name: currentUser.email?.split('@')[0] });
-            setNeedsOnboarding(true);
-          } else {
-            // Network or other error
-            setError('Failed to load user profile. Please check your connection.');
-            setProfile({ display_name: currentUser.email?.split('@')[0] });
-            setNeedsOnboarding(true);
-          }
+          setError('Failed to load user profile. Please check your connection.');
+          setProfile({ 
+            display_name: currentUser.email?.split('@')[0] || 'User',
+            email: currentUser.email 
+          });
+          setNeedsOnboarding(true);
         }
       } else {
         setProfile(null);
@@ -85,26 +89,30 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            display_name: userData.displayName || email.split('@')[0],
-            ...userData
-          }
-        }
-      });
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      if (error) throw error;
-      return { data, error: null };
+      // Create user profile in Firestore
+      const newProfile = {
+        id: userCredential.user.uid,
+        display_name: userData.displayName || email.split('@')[0],
+        email: email,
+        neurodiversity_type: [],
+        preferences: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      await setDoc(doc(db, 'user_profiles', userCredential.user.uid), newProfile);
+      
+      return { data: userCredential, error: null };
     } catch (error) {
+      console.error('Sign up error:', error);
       return { data: null, error };
     } finally {
       setLoading(false);
@@ -114,14 +122,10 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      
-      if (error) throw error;
-      return { data, error: null };
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return { data: userCredential, error: null };
     } catch (error) {
+      console.error('Sign in error:', error);
       return { data: null, error };
     } finally {
       setLoading(false);
@@ -131,10 +135,10 @@ export const AuthProvider = ({ children }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await firebaseSignOut(auth);
       return { success: true, error: null };
     } catch (error) {
+      console.error('Sign out error:', error);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -145,32 +149,25 @@ export const AuthProvider = ({ children }) => {
     try {
       // Update the profile in the database to mark onboarding as completed
       if (user) {
-        const { error } = await supabase
-          .from('user_profiles')
-          .update({
-            preferences: {
-              ...profile?.preferences,
-              onboarding_completed: true,
-              onboarding_date: new Date().toISOString(),
-            }
-          })
-          .eq('id', user.id);
+        const profileRef = doc(db, 'user_profiles', user.uid);
+        const updatedPreferences = {
+          ...profile?.preferences,
+          onboarding_completed: true,
+          onboarding_date: new Date().toISOString(),
+        };
+        
+        await updateDoc(profileRef, {
+          preferences: updatedPreferences,
+          updated_at: new Date().toISOString()
+        });
 
-        if (error) {
-          console.error('Error updating onboarding status:', error);
-        } else {
-          // Update local profile state
-          const updatedProfile = {
-            ...profile,
-            preferences: {
-              ...profile?.preferences,
-              onboarding_completed: true,
-              onboarding_date: new Date().toISOString(),
-            }
-          };
-          setProfile(updatedProfile);
-          console.log('Profile updated after onboarding completion:', updatedProfile);
-        }
+        // Update local profile state
+        const updatedProfile = {
+          ...profile,
+          preferences: updatedPreferences
+        };
+        setProfile(updatedProfile);
+        console.log('Profile updated after onboarding completion:', updatedProfile);
       }
       
       // Always set needsOnboarding to false to prevent getting stuck
