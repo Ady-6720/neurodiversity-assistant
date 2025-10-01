@@ -208,6 +208,11 @@ export const cognitiveService = {
       const querySnapshot = await getDocs(q);
       const data = querySnapshot.docs.map(doc => doc.data());
 
+      console.log('Progress Summary - Total exercises found:', data.length);
+      if (data.length > 0) {
+        console.log('Sample exercise data:', data[0]);
+      }
+
       const summary = {
         totalExercises: data?.length || 0,
         sectionsCompleted: new Set(),
@@ -229,8 +234,11 @@ export const cognitiveService = {
         });
 
         // Calculate average accuracy
-        const totalAccuracy = data.reduce((sum, exercise) => sum + exercise.accuracy_percentage, 0);
-        summary.averageAccuracy = totalAccuracy / data.length;
+        const totalAccuracy = data.reduce((sum, exercise) => {
+          const accuracy = exercise.accuracy_percentage || 0;
+          return sum + accuracy;
+        }, 0);
+        summary.averageAccuracy = data.length > 0 ? Math.round(totalAccuracy / data.length) : 0;
 
         // Calculate exercises completed today
         const today = new Date();
