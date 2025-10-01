@@ -24,6 +24,13 @@ Thumbs.db
 *.swo
 *~
 
+# AI Assistants
+.cursor/
+.cursorrules
+.windsurfrules
+.cascade/
+.aider*
+
 # Build
 *.jks
 *.p8
