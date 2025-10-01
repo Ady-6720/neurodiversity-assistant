@@ -58,8 +58,10 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
     setIsAnswering(true);
     const isCorrect = selectedColor.name === colorName;
     
+    let newScore = score;
     if (isCorrect) {
-      setScore(score + 1);
+      newScore = score + 1;
+      setScore(newScore);
       setFeedback('Correct! ✓');
     } else {
       setFeedback('Wrong! ✗');
@@ -70,15 +72,15 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
     
     setTimeout(() => {
       if (newQuestionCount >= 10) {
-        endGame();
+        endGame(newScore);
       } else {
         generateQuestion();
       }
     }, 1000);
   };
 
-  const endGame = () => {
-    onComplete(score, 10);
+  const endGame = (finalScore) => {
+    onComplete(finalScore, 10);
   };
 
   // Show loading state if no options are generated yet
