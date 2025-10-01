@@ -89,7 +89,7 @@ const ScheduleScreen = () => {
     setLoading(true);
     try {
       const dateString = currentDate.toISOString().split('T')[0];
-      const { data, error } = await scheduleService.getScheduleByDate(user.id, dateString);
+      const { data, error } = await scheduleService.getScheduleByDate(user.uid, dateString);
       if (error) {
         console.error('Error loading schedule:', error);
       } else {
@@ -128,7 +128,7 @@ const ScheduleScreen = () => {
         date: currentDate.toISOString().split('T')[0]
       };
 
-      const { data, error } = await scheduleService.createScheduleItem(user.id, scheduleData);
+      const { data, error } = await scheduleService.createScheduleItem(user.uid, scheduleData);
       if (error) {
         setSnackbarMessage('Failed to add activity');
       } else {
@@ -824,3 +824,4 @@ const styles = StyleSheet.create({
 });
 
 export default ScheduleScreen;
+

@@ -69,7 +69,7 @@ const SensoryTrackingScreen = () => {
     
     setLoading(true);
     try {
-      const { data, error } = await sensoryService.getSensoryHistory(user.id, 20);
+      const { data, error } = await sensoryService.getSensoryHistory(user.uid, 20);
       if (error) throw error;
       setSensoryHistory(data || []);
     } catch (error) {
@@ -97,7 +97,7 @@ const SensoryTrackingScreen = () => {
     setLoading(true);
     try {
       const { error } = await sensoryService.trackSensoryEvent(
-        user.id,
+        user.uid,
         formData.sensoryType,
         formData.intensityLevel,
         formData.triggers,

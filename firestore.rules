@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User profiles - users can only read/write their own profile
+    match /user_profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Tasks - allow all authenticated users
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Schedules - allow all authenticated users
+    match /schedules/{scheduleId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Cognitive exercises - allow all authenticated users
+    match /cognitive_exercises/{exerciseId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Sensory events - allow all authenticated users
+    match /sensory_events/{eventId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Sensory logs - allow all authenticated users
+    match /sensory_logs/{logId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Focus sessions - allow all authenticated users
+    match /focus_sessions/{sessionId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

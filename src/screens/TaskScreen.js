@@ -65,7 +65,7 @@ const TaskScreen = () => {
     
     setLoading(true);
     try {
-      const { data, error } = await taskService.getUserTasks(user.id, filter);
+      const { data, error } = await taskService.getUserTasks(user.uid, filter);
       if (error) {
         console.error('Error loading tasks:', error);
         setSnackbarMessage('Failed to load tasks');
@@ -107,7 +107,7 @@ const TaskScreen = () => {
         category: 'general'
       };
 
-      const { data, error } = await taskService.createTask(user.id, taskData);
+      const { data, error } = await taskService.createTask(user.uid, taskData);
       if (error) {
         console.error('Error creating task:', error);
         setErrorMessage('Failed to create task');
@@ -596,3 +596,4 @@ const styles = StyleSheet.create({
 });
 
 export default TaskScreen;
+

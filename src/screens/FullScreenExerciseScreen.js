@@ -87,7 +87,7 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
     // Save to backend
     if (user) {
       try {
-        const { data, error } = await cognitiveService.trackExerciseCompletion(user.id, exerciseData);
+        const { data, error } = await cognitiveService.trackExerciseCompletion(user.uid, exerciseData);
         if (error) {
           console.error('Error saving exercise:', error);
         } else {
@@ -473,3 +473,4 @@ const styles = StyleSheet.create({
 });
 
 export default FullScreenExerciseScreen;
+

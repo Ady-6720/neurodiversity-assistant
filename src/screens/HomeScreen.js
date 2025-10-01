@@ -5,8 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Animated,
   Dimensions,
+  RefreshControl,
+  Modal,
 } from 'react-native';
 import {
   Card,
@@ -15,14 +16,14 @@ import {
   Button,
   IconButton,
   ActivityIndicator,
+  Divider,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
-import { colors, spacing, typography } from '../config/theme';
+import { colors, spacing } from '../config/theme';
 import { cognitiveService } from '../services/cognitiveService';
-
-const { width } = Dimensions.get('window');
+import { taskService } from '../services/taskService';
 
 const HomeScreen = ({ navigation }) => {
   const { user, profile, signOut, loading } = useAuth();
@@ -30,6 +31,7 @@ const HomeScreen = ({ navigation }) => {
   const [progressData, setProgressData] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -45,12 +47,12 @@ const HomeScreen = ({ navigation }) => {
       try {
         setLoadingStats(true);
         
-        const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.id);
+        const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.uid);
         if (summaryError) {
           console.error('Error loading progress summary:', summaryError);
         }
         
-        const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.id, 5);
+        const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.uid, 5);
         if (historyError) {
           console.error('Error loading exercise history:', historyError);
         }
@@ -223,7 +225,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           
           <TouchableOpacity
-            onPress={handleSignOut}
+            onPress={() => setShowProfileMenu(true)}
             style={styles.profileButton}
             accessibilityLabel="Profile and settings"
           >
@@ -234,6 +236,80 @@ const HomeScreen = ({ navigation }) => {
             />
           </TouchableOpacity>
         </View>
+
+        {/* Profile Menu Modal */}
+        <Modal
+          visible={showProfileMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowProfileMenu(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowProfileMenu(false)}
+          >
+            <View style={styles.profileMenu}>
+              <View style={styles.profileMenuHeader}>
+                <MaterialCommunityIcons name="account-circle" size={48} color={colors.primary} />
+                <View style={styles.profileMenuInfo}>
+                  <Text style={styles.profileMenuName}>
+                    {profile?.display_name || user?.email?.split('@')[0] || 'User'}
+                  </Text>
+                  <Text style={styles.profileMenuEmail}>{user?.email || 'Guest'}</Text>
+                </View>
+              </View>
+
+              <Divider style={styles.menuDivider} />
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  navigation.navigate('Profile');
+                }}
+              >
+                <MaterialCommunityIcons name="account-edit" size={24} color={colors.text} />
+                <Text style={styles.menuItemText}>Edit Profile</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  // Navigate to settings
+                }}
+              >
+                <MaterialCommunityIcons name="cog" size={24} color={colors.text} />
+                <Text style={styles.menuItemText}>Settings</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  // Navigate to help
+                }}
+              >
+                <MaterialCommunityIcons name="help-circle" size={24} color={colors.text} />
+                <Text style={styles.menuItemText}>Help & Support</Text>
+              </TouchableOpacity>
+
+              <Divider style={styles.menuDivider} />
+
+              <TouchableOpacity 
+                style={[styles.menuItem, styles.logoutItem]}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  handleSignOut();
+                }}
+              >
+                <MaterialCommunityIcons name="logout" size={24} color={colors.error} />
+                <Text style={[styles.menuItemText, styles.logoutText]}>Log Out</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Progress Card - HERO SECTION */}
         <Card style={styles.progressCard} elevation={6}>
@@ -592,6 +668,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
   },
+  // Profile Menu
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 80,
+    paddingRight: spacing.lg,
+  },
+  profileMenu: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: 280,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  profileMenuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  profileMenuInfo: {
+    flex: 1,
+  },
+  profileMenuName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  profileMenuEmail: {
+    fontSize: 13,
+    color: colors.subtext,
+  },
+  menuDivider: {
+    marginVertical: spacing.xs,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  logoutItem: {
+    marginTop: spacing.xs,
+  },
+  logoutText: {
+    color: colors.error,
+  },
   emptyActivityTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -661,3 +796,4 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
+

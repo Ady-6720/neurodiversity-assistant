@@ -29,19 +29,19 @@ const CognitiveProgressScreen = ({ navigation }) => {
       setLoading(true);
       
       // Load progress summary
-      const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.id);
+      const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.uid);
       if (summaryError) {
         console.error('Error loading progress summary:', summaryError);
       }
 
       // Load exercise history
-      const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.id, 10);
+      const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.uid, 10);
       if (historyError) {
         console.error('Error loading exercise history:', historyError);
       }
 
       // Load recommendations
-      const { data: recommendations, error: recError } = await cognitiveService.getRecommendedExercises(user.id);
+      const { data: recommendations, error: recError } = await cognitiveService.getRecommendedExercises(user.uid);
       if (recError) {
         console.error('Error loading recommendations:', recError);
       }

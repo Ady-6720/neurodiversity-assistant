@@ -67,7 +67,7 @@ const SensoryPreferencesScreen = () => {
     
     setLoading(true);
     try {
-      const { data, error } = await sensoryService.getUserPreferences(user.id);
+      const { data, error } = await sensoryService.getUserPreferences(user.uid);
       if (error) throw error;
       
       const prefsMap = {};
@@ -100,7 +100,7 @@ const SensoryPreferencesScreen = () => {
     setLoading(true);
     try {
       const { error } = await sensoryService.saveSensoryPreference(
-        user.id,
+        user.uid,
         editingType,
         formData.sensitivityLevel,
         formData.triggers,
@@ -113,7 +113,7 @@ const SensoryPreferencesScreen = () => {
       setPreferences(prev => ({
         ...prev,
         [editingType]: {
-          user_id: user.id,
+          user_id: user.uid,
           sensory_type: editingType,
           sensitivity_level: formData.sensitivityLevel,
           triggers: formData.triggers,

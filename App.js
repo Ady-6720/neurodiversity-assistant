@@ -14,7 +14,6 @@ import { StatusBar, View, StyleSheet, Text } from 'react-native';
 
 // Import theme configuration using relative path
 import { colors, typography, spacing, shapes } from './src/config/theme.js';
-
 // Import contexts and components
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -31,6 +30,7 @@ import CognitiveProgressScreen from './src/screens/CognitiveProgressScreen';
 import StandardAuthScreen from './src/screens/StandardAuthScreen';
 import SimpleOnboardingScreen from './src/screens/SimpleOnboardingScreen';
 import FullScreenExerciseScreen from './src/screens/FullScreenExerciseScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -104,6 +104,40 @@ const screenConfigs = [
     color: colors.focus
   }
 ];
+
+// Home Stack Navigator
+function HomeStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.surface,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.accent3,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontFamily: typography.families.heading,
+          fontWeight: typography.weights.semibold,
+          fontSize: typography.sizes.lg,
+        },
+      }}
+    >
+      <Stack.Screen 
+        name="HomeMain" 
+        component={HomeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 // Cognitive Stack Navigator
 function CognitiveStack() {
@@ -229,7 +263,11 @@ function AppNavigation() {
           <Tab.Screen
             key={screen.name}
             name={screen.name}
-            component={screen.name === 'Cognitive' ? CognitiveStack : screen.component}
+            component={
+              screen.name === 'Home' ? HomeStack :
+              screen.name === 'Cognitive' ? CognitiveStack :
+              screen.component
+            }
             options={{
               tabBarLabel: screen.label,
               tabBarIcon: ({ color, size, focused }) => (

@@ -42,7 +42,7 @@ const FocusScreen = () => {
     if (!user) return;
     
     try {
-      const { data, error } = await focusService.getFocusStats(user.id, 7); // Last 7 days
+      const { data, error } = await focusService.getFocusStats(user.uid, 7); // Last 7 days
       if (error) {
         console.error('Error loading focus stats:', error);
       } else {
@@ -94,7 +94,7 @@ const FocusScreen = () => {
         notes: sessionNote
       };
       
-      const { data, error } = await focusService.createFocusSession(user.id, sessionData);
+      const { data, error } = await focusService.createFocusSession(user.uid, sessionData);
       if (error) {
         console.error('Error creating focus session:', error);
       } else {
