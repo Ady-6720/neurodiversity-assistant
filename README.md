@@ -1,64 +1,51 @@
-# NeuroEase: Neurodiversity Assistant
+# Neurodiversity Assistant
 
-A mobile application designed to support and empower neurodivergent individuals in their daily lives.
+An app to help neurodivergent people manage daily life better.
 
-## 🌟 Overview
+## What it does
 
-NeuroEase is a comprehensive mobile application built to assist neurodivergent individuals with daily tasks, organization, and emotional regulation. The app provides a suite of tools and features specifically designed to address the unique needs of people with various neurodivergent conditions.
+- **Tasks** - Keep track of what you need to do
+- **Schedule** - Plan your day with morning, afternoon, and evening sections
+- **Brain Games** - Simple exercises for focus and memory
+- **Sensory Tools** - Help when things feel overwhelming
+- **Home Dashboard** - See your progress and streaks
 
-## 🚀 Features
+## How to run it
 
-- Task Management and Organization
-- Emotional Regulation Tools
-- Sensory Overload Management
-- Daily Routine Assistance
-- Focus and Productivity Tools (Pomodoro Timer)
-- Communication Templates
-- Customizable User Experience
-
-## 🛠️ Technology Stack
-
-- React Native
-- JavaScript/TypeScript
-- Expo Framework
-- Android Support
-
-## 📱 Installation
-
-1. Clone the repository:
+1. Get the code:
 ```bash
 git clone https://github.com/Ady-6720/neurodiversity-assistant.git
+cd neurodiversity-assistant
 ```
 
-2. Install dependencies:
+2. Install stuff:
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
-   - Copy `env.example` to `.env.local`
-   - Update with your Supabase credentials:
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+3. Set up Firebase:
+   - Copy `.env.example` to `.env.local`
+   - Add your Firebase config (get it from Firebase Console)
 
-4. Run the development server:
+4. Start it:
 ```bash
 npm start
 ```
+Or just run `run.ps1` on Windows.
 
-## 🤝 Contributing
+## Built with
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- React Native + Expo
+- Firebase for data
+- React Native Paper for UI
 
-## 📄 License
+## Recent updates
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📞 Contact
-
-For any queries or suggestions, please open an issue in the repository.
+- Removed all horizontal scrolling (it was annoying)
+- Made task numbers bigger and on top
+- Added collapsible schedule sections
+- Better modals with proper backgrounds
+- Everything fits on screen now
 
 ---
-Built with ❤️ for the neurodivergent community 
+Made for people who think differently 💙
