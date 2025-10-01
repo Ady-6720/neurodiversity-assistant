@@ -33,8 +33,8 @@ export const taskService = {
         description: description || '',
         priority: priority || 'medium',
         category: category || 'general',
-        due_date: dueDate,
-        estimated_minutes: estimatedMinutes,
+        due_date: dueDate || null,
+        estimated_minutes: estimatedMinutes || 0,
         completed: false,
         created_at: new Date().toISOString()
       });

@@ -107,10 +107,18 @@ const TaskScreen = () => {
         category: 'general'
       };
 
+      console.log('Creating task with user.uid:', user.uid);
+      console.log('Task data:', taskData);
+      
       const { data, error } = await taskService.createTask(user.uid, taskData);
+      
+      console.log('Create result:', { data, error });
+      
       if (error) {
         console.error('Error creating task:', error);
-        setErrorMessage('Failed to create task');
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        setErrorMessage(`Failed: ${error.message || 'Unknown error'}`);
       } else {
         setTasks([data, ...tasks]);
         setNewTask('');
