@@ -124,7 +124,7 @@ const ScheduleScreen = () => {
         title: newActivity.title.trim(),
         time: newActivity.time,
         duration: dur,
-        category: newActivity.category,
+        type: newActivity.category, // Map category to type
         date: currentDate.toISOString().split('T')[0]
       };
 
