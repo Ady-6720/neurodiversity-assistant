@@ -69,12 +69,14 @@ export const cognitiveService = {
       const q = query(
         collection(db, 'cognitive_exercises'),
         where('user_id', '==', userId),
+        where('completed', '==', true),
         orderBy('created_at', 'desc'),
         firestoreLimit(limitCount)
       );
 
       const querySnapshot = await getDocs(q);
       const exercises = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('getExerciseHistory - Found', exercises.length, 'exercises for user', userId);
       return { data: exercises, error: null };
     } catch (error) {
       console.error('Error fetching exercise history:', error);

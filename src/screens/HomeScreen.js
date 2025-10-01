@@ -57,6 +57,8 @@ const HomeScreen = ({ navigation }) => {
           console.error('Error loading exercise history:', historyError);
         }
         
+        console.log('Exercise history loaded:', history?.length || 0, 'exercises');
+        
         setProgressData(summary || {
           totalExercises: 0,
           averageAccuracy: 0,
@@ -74,6 +76,7 @@ const HomeScreen = ({ navigation }) => {
           score: exercise.accuracy_percentage
         }));
         
+        console.log('Formatted activity:', formattedActivity);
         setRecentActivity(formattedActivity);
         
       } catch (error) {
