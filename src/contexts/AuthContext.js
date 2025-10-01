@@ -4,6 +4,7 @@ import { auth, db } from '../config/firebase';
 import { 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
@@ -180,6 +181,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInAsGuest = async () => {
+    try {
+      setLoading(true);
+      const userCredential = await signInAnonymously(auth);
+      return { data: userCredential, error: null };
+    } catch (error) {
+      console.error('Anonymous sign in error:', error);
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     profile,
@@ -187,6 +201,7 @@ export const AuthProvider = ({ children }) => {
     needsOnboarding,
     signIn,
     signUp,
+    signInAsGuest,
     signOut,
     completeOnboarding,
   };

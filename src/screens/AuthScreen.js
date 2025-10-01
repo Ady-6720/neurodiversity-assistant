@@ -1,4 +1,3 @@
-// src/screens/AuthScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -7,19 +6,21 @@ import {
   Platform,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import {
   TextInput,
   Button,
   Card,
   Title,
-  Paragraph,
-  Switch,
+  Text,
   Divider,
+  ActivityIndicator,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
-import { colors, spacing, typography } from '../config/theme';
+import { colors, spacing } from '../config/theme';
 import LandingScreen from './LandingScreen';
 
 const AuthScreen = ({ showLanding = true }) => {
@@ -30,42 +31,52 @@ const AuthScreen = ({ showLanding = true }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   const { signIn, signUp } = useAuth();
 
-  const handleAuth = async () => {
+  const handleEmailAuth = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Missing fields', 'Please enter email and password');
       return;
     }
 
     if (isSignUp && password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Password mismatch', 'Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Weak password', 'Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      let result;
       if (isSignUp) {
-        result = await signUp(email, password, { displayName });
+        const result = await signUp(email, password, { displayName });
+        if (result.error) {
+          Alert.alert('Signup failed', result.error.message);
+        } else {
+          setShowEmailVerification(true);
+          Alert.alert(
+            'Check your email',
+            'We sent you a verification link. Please verify your email before signing in.',
+            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+          );
+        }
       } else {
-        result = await signIn(email, password);
-      }
-
-      if (result.error) {
-        Alert.alert('Authentication Error', result.error.message);
-      } else if (isSignUp) {
-        Alert.alert(
-          'Success',
-          'Account created! Please check your email to verify your account.'
-        );
+        const result = await signIn(email, password);
+        if (result.error) {
+          if (result.error.code === 'auth/user-not-found') {
+            Alert.alert('No account found', 'Please sign up first');
+          } else if (result.error.code === 'auth/wrong-password') {
+            Alert.alert('Wrong password', 'Please try again');
+          } else {
+            Alert.alert('Sign in failed', result.error.message);
+          }
+        }
       }
     } catch (error) {
       Alert.alert('Error', error.message);
@@ -74,13 +85,24 @@ const AuthScreen = ({ showLanding = true }) => {
     }
   };
 
-  // Show landing page first
+  const handleGoogleSignIn = async () => {
+    Alert.alert('Coming soon', 'Google sign-in will be available soon');
+  };
+
+  const handleAppleSignIn = async () => {
+    Alert.alert('Coming soon', 'Apple sign-in will be available soon');
+  };
+
+  const handlePhoneSignIn = async () => {
+    Alert.alert('Coming soon', 'Phone sign-in will be available soon');
+  };
+
+  const handleAnonymousSignIn = async () => {
+    Alert.alert('Coming soon', 'Anonymous sign-in will be available soon');
+  };
+
   if (showLandingPage) {
-    return (
-      <LandingScreen 
-        onGetStarted={() => setShowLandingPage(false)}
-      />
-    );
+    return <LandingScreen onGetStarted={() => setShowLandingPage(false)} />;
   }
 
   return (
@@ -89,28 +111,30 @@ const AuthScreen = ({ showLanding = true }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
           <View style={styles.header}>
             <Title style={styles.title}>NeuroEase</Title>
-            <Paragraph style={styles.subtitle}>
-              Your neurodiversity assistant
-            </Paragraph>
+            <Text style={styles.subtitle}>
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </Text>
           </View>
 
+          {/* Main Card */}
           <Card style={styles.card}>
             <Card.Content>
-              <Title style={styles.cardTitle}>
-                {isSignUp ? 'Create Account' : 'Welcome Back'}
-              </Title>
-
+              {/* Email/Password Form */}
               {isSignUp && (
                 <TextInput
-                  label="Display Name"
+                  label="Name"
                   value={displayName}
                   onChangeText={setDisplayName}
                   style={styles.input}
                   mode="outlined"
-                  theme={{ colors: { primary: colors.primary } }}
+                  left={<TextInput.Icon icon="account" />}
                 />
               )}
 
@@ -122,7 +146,7 @@ const AuthScreen = ({ showLanding = true }) => {
                 autoCapitalize="none"
                 style={styles.input}
                 mode="outlined"
-                theme={{ colors: { primary: colors.primary } }}
+                left={<TextInput.Icon icon="email" />}
               />
 
               <TextInput
@@ -132,7 +156,7 @@ const AuthScreen = ({ showLanding = true }) => {
                 secureTextEntry
                 style={styles.input}
                 mode="outlined"
-                theme={{ colors: { primary: colors.primary } }}
+                left={<TextInput.Icon icon="lock" />}
               />
 
               {isSignUp && (
@@ -143,43 +167,84 @@ const AuthScreen = ({ showLanding = true }) => {
                   secureTextEntry
                   style={styles.input}
                   mode="outlined"
-                  theme={{ colors: { primary: colors.primary } }}
+                  left={<TextInput.Icon icon="lock-check" />}
                 />
               )}
 
               <Button
                 mode="contained"
-                onPress={handleAuth}
+                onPress={handleEmailAuth}
                 loading={loading}
                 disabled={loading}
-                style={styles.authButton}
-                buttonColor={colors.primary}
+                style={styles.primaryButton}
+                icon="email"
               >
-                {isSignUp ? 'Create Account' : 'Sign In'}
+                {isSignUp ? 'Sign up with Email' : 'Sign in with Email'}
               </Button>
 
-              <Divider style={styles.divider} />
-
-              <View style={styles.switchContainer}>
-                <Paragraph>
-                  {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-                </Paragraph>
-                <Switch
-                  value={isSignUp}
-                  onValueChange={setIsSignUp}
-                  color={colors.primary}
-                />
-                <Paragraph>
-                  {isSignUp ? 'Sign In' : 'Sign Up'}
-                </Paragraph>
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <Divider style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <Divider style={styles.dividerLine} />
               </View>
+
+              {/* Social Sign In Buttons */}
+              <View style={styles.socialButtons}>
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleGoogleSignIn}
+                >
+                  <MaterialCommunityIcons name="google" size={24} color="#DB4437" />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleAppleSignIn}
+                >
+                  <MaterialCommunityIcons name="apple" size={24} color="#000000" />
+                  <Text style={styles.socialButtonText}>Apple</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.socialButtons}>
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handlePhoneSignIn}
+                >
+                  <MaterialCommunityIcons name="phone" size={24} color={colors.primary} />
+                  <Text style={styles.socialButtonText}>Phone</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleAnonymousSignIn}
+                >
+                  <MaterialCommunityIcons name="incognito" size={24} color="#6B7280" />
+                  <Text style={styles.socialButtonText}>Guest</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Toggle Sign In/Sign Up */}
+              <TouchableOpacity
+                style={styles.toggleButton}
+                onPress={() => setIsSignUp(!isSignUp)}
+              >
+                <Text style={styles.toggleText}>
+                  {isSignUp
+                    ? 'Already have an account? Sign in'
+                    : "Don't have an account? Sign up"}
+                </Text>
+              </TouchableOpacity>
             </Card.Content>
           </Card>
 
+          {/* Footer */}
           <View style={styles.footer}>
-            <Paragraph style={styles.footerText}>
-              Designed with neurodiversity in mind
-            </Paragraph>
+            <Text style={styles.footerText}>
+              Made for people who think differently 💙
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -206,42 +271,79 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 16,
     color: colors.subtext,
-    textAlign: 'center',
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     elevation: 4,
-    borderRadius: 12,
-  },
-  cardTitle: {
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    color: colors.text,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   input: {
     marginBottom: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
   },
-  authButton: {
-    marginTop: spacing.md,
+  primaryButton: {
+    marginTop: spacing.sm,
     marginBottom: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
   },
-  divider: {
-    marginVertical: spacing.md,
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
   },
-  switchContainer: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: spacing.md,
+    fontSize: 13,
+    color: colors.subtext,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  socialButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    gap: spacing.xs,
+  },
+  socialButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  toggleButton: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
@@ -250,7 +352,6 @@ const styles = StyleSheet.create({
   footerText: {
     color: colors.subtext,
     fontSize: 14,
-    textAlign: 'center',
   },
 });
 

@@ -76,9 +76,7 @@ const SimpleOnboardingScreen = ({ onComplete }) => {
       await setDoc(profileRef, profileData, { merge: true });
 
       // Call completeOnboarding to update the auth state
-      console.log('Calling completeOnboarding...');
       await completeOnboarding();
-      console.log('Onboarding completed successfully');
       
       // Add a small delay to ensure state updates properly
       setTimeout(() => {
@@ -165,17 +163,6 @@ const SimpleOnboardingScreen = ({ onComplete }) => {
               Complete Setup
             </Text>
           )}
-        </TouchableOpacity>
-        
-        {/* Debug button - remove in production */}
-        <TouchableOpacity 
-          style={[styles.debugButton]} 
-          onPress={async () => {
-            console.log('Debug: Manually completing onboarding');
-            await completeOnboarding();
-          }}
-        >
-          <Text style={styles.debugButtonText}>Debug: Skip Onboarding</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -289,19 +276,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  debugButton: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#FF6B6B',
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '500',
   },
 });
 

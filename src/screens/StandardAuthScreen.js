@@ -1,4 +1,3 @@
-// src/screens/StandardAuthScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -31,7 +30,7 @@ const StandardAuthScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInAsGuest } = useAuth();
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -39,33 +38,33 @@ const StandardAuthScreen = () => {
 
   const validateForm = () => {
     if (!formData.email || !formData.password) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Missing fields', 'Please fill in all required fields');
       return false;
     }
 
     if (!formData.email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      Alert.alert('Invalid email', 'Please enter a valid email address');
       return false;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      Alert.alert('Weak password', 'Password must be at least 6 characters');
       return false;
     }
 
     if (isSignUp) {
       if (!formData.firstName) {
-        Alert.alert('Error', 'Please enter your first name');
+        Alert.alert('Missing name', 'Please enter your first name');
         return false;
       }
 
       if (formData.password !== formData.confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
+        Alert.alert('Password mismatch', 'Passwords do not match');
         return false;
       }
 
       if (!agreedToTerms) {
-        Alert.alert('Error', 'Please agree to our Terms & Conditions and Privacy Policy');
+        Alert.alert('Terms required', 'Please agree to Terms & Conditions');
         return false;
       }
     }
@@ -91,64 +90,51 @@ const StandardAuthScreen = () => {
         
         if (!result.error) {
           Alert.alert(
-            'Account Created Successfully!',
-            'Welcome to NeuroEase! Please check your email to verify your account before signing in.',
-            [{ text: 'Continue', onPress: () => setIsSignUp(false) }]
-          );
-        }
-      } else {
-        console.log('Attempting sign in with:', formData.email); // Debug log
-        result = await signIn(formData.email, formData.password);
-        console.log('Sign in result:', result); // Debug log
-      }
-
-      if (result.error) {
-        console.log('Auth Error Object:', result.error); // Debug log
-        console.log('Auth Error Message:', result.error.message); // Debug log
-        
-        // Check for various possible error messages
-        const errorMessage = (result.error.message || '').toLowerCase();
-        
-        if (errorMessage.includes('email not confirmed') || errorMessage.includes('email not verified')) {
-          Alert.alert(
-            'Email Verification Required',
-            'Please check your email and click the verification link before signing in.'
-          );
-        } else if (errorMessage.includes('invalid login credentials') || 
-                   errorMessage.includes('invalid email') ||
-                   errorMessage.includes('user not found') ||
-                   errorMessage.includes('no user found') ||
-                   errorMessage.includes('invalid credentials')) {
-          Alert.alert(
-            'Account Not Found',
-            'No account exists with this email address. Please check your email or create a new account.'
-          );
-        } else if (errorMessage.includes('weak password') || errorMessage.includes('password')) {
-          Alert.alert(
-            'Password Issue',
-            'Please check your password and try again.'
+            'Check your email',
+            'Please verify your email before signing in.',
+            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
           );
         } else {
-          // Show the actual error message for debugging
-          Alert.alert('Error', `Error: ${result.error.message}`);
+          Alert.alert('Signup failed', result.error.message);
+        }
+      } else {
+        result = await signIn(formData.email, formData.password);
+        
+        if (result.error) {
+          Alert.alert('Sign in failed', result.error.message);
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleAuthMode = () => {
-    setIsSignUp(!isSignUp);
-    setFormData({
-      email: formData.email,
-      password: '',
-      confirmPassword: '',
-      firstName: '',
-      lastName: '',
-    });
+  const handleGoogleSignIn = () => {
+    Alert.alert('Coming soon', 'Google sign-in will be available soon');
+  };
+
+  const handleAppleSignIn = () => {
+    Alert.alert('Coming soon', 'Apple sign-in will be available soon');
+  };
+
+  const handlePhoneSignIn = () => {
+    Alert.alert('Coming soon', 'Phone sign-in will be available soon');
+  };
+
+  const handleAnonymousSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await signInAsGuest();
+      if (result.error) {
+        Alert.alert('Guest sign-in failed', result.error.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,26 +143,21 @@ const StandardAuthScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
+        <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <MaterialCommunityIcons name="brain" size={40} color="#4A90E2" />
-            </View>
             <Text style={styles.title}>NeuroEase</Text>
             <Text style={styles.subtitle}>
-              {isSignUp ? 'Join millions of users worldwide' : 'Welcome back to NeuroEase'}
-            </Text>
-            <Text style={styles.tagline}>
-              {isSignUp ? 'Your journey to better focus starts here' : 'Continue your personalized experience'}
+              {isSignUp ? 'Create your account' : 'Welcome back'}
             </Text>
           </View>
 
-          {/* Form */}
-          <View style={styles.form}>
+          {/* Main Form Card */}
+          <View style={styles.card}>
+            {/* Name Fields - Only for Sign Up */}
             {isSignUp && (
               <View style={styles.nameRow}>
                 <View style={styles.nameField}>
@@ -202,24 +183,26 @@ const StandardAuthScreen = () => {
               </View>
             )}
 
+            {/* Email */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Email Address *</Text>
               <TextInput
                 style={styles.input}
                 value={formData.email}
                 onChangeText={(value) => updateFormData('email', value)}
-                placeholder="john@example.com"
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoCorrect={false}
+                autoComplete="email"
               />
             </View>
 
+            {/* Password */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Password *</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={styles.passwordInput}
+                  style={[styles.input, styles.passwordInput]}
                   value={formData.password}
                   onChangeText={(value) => updateFormData('password', value)}
                   placeholder="Enter your password"
@@ -227,24 +210,25 @@ const StandardAuthScreen = () => {
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
-                  style={styles.eyeButton}
+                  style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   <MaterialCommunityIcons
                     name={showPassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color="#666"
+                    size={24}
+                    color="#9CA3AF"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
+            {/* Confirm Password - Only for Sign Up */}
             {isSignUp && (
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Confirm Password *</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={[styles.input, styles.passwordInput]}
                     value={formData.confirmPassword}
                     onChangeText={(value) => updateFormData('confirmPassword', value)}
                     placeholder="Confirm your password"
@@ -252,60 +236,50 @@ const StandardAuthScreen = () => {
                     autoCapitalize="none"
                   />
                   <TouchableOpacity
-                    style={styles.eyeButton}
+                    style={styles.eyeIcon}
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     <MaterialCommunityIcons
                       name={showConfirmPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#666"
+                      size={24}
+                      color="#9CA3AF"
                     />
                   </TouchableOpacity>
                 </View>
               </View>
             )}
 
-            {/* Terms & Conditions and Promotional Emails - Only for Sign Up */}
+            {/* Terms & Conditions - Only for Sign Up */}
             {isSignUp && (
               <>
-                <View style={styles.checkboxContainer}>
-                  <TouchableOpacity
-                    style={styles.checkbox}
-                    onPress={() => setAgreedToTerms(!agreedToTerms)}
-                  >
-                    <MaterialCommunityIcons
-                      name={agreedToTerms ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={20}
-                      color={agreedToTerms ? '#4A90E2' : '#9CA3AF'}
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.checkboxTextContainer}>
-                    <Text style={styles.checkboxText}>
-                      I agree to the{' '}
-                      <Text style={styles.linkText}>Terms & Conditions</Text>
-                      {' '}and{' '}
-                      <Text style={styles.linkText}>Privacy Policy</Text>
-                    </Text>
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  onPress={() => setAgreedToTerms(!agreedToTerms)}
+                >
+                  <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+                    {agreedToTerms && (
+                      <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+                    )}
                   </View>
-                </View>
+                  <Text style={styles.checkboxText}>
+                    I agree to the <Text style={styles.linkText}>Terms & Conditions</Text> and{' '}
+                    <Text style={styles.linkText}>Privacy Policy</Text>
+                  </Text>
+                </TouchableOpacity>
 
-                <View style={styles.checkboxContainer}>
-                  <TouchableOpacity
-                    style={styles.checkbox}
-                    onPress={() => setPromotionalEmails(!promotionalEmails)}
-                  >
-                    <MaterialCommunityIcons
-                      name={promotionalEmails ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={20}
-                      color={promotionalEmails ? '#4A90E2' : '#9CA3AF'}
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.checkboxTextContainer}>
-                    <Text style={styles.checkboxText}>
-                      Send me promotional emails about new features and updates
-                    </Text>
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  onPress={() => setPromotionalEmails(!promotionalEmails)}
+                >
+                  <View style={[styles.checkbox, promotionalEmails && styles.checkboxChecked]}>
+                    {promotionalEmails && (
+                      <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+                    )}
                   </View>
-                </View>
+                  <Text style={styles.checkboxText}>
+                    Send me promotional emails about new features
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
 
@@ -324,51 +298,60 @@ const StandardAuthScreen = () => {
               )}
             </TouchableOpacity>
 
-            {/* Forgot Password - Only for Sign In */}
-            {!isSignUp && (
-              <TouchableOpacity style={styles.forgotPasswordContainer}>
-                <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
-              </TouchableOpacity>
-            )}
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-            {/* Debug Test Buttons - Remove in production */}
-            <View style={styles.debugContainer}>
-              <TouchableOpacity 
-                style={styles.debugButton} 
-                onPress={() => {
-                  Alert.alert(
-                    'Account Not Found',
-                    'No account exists with this email address. Please check your email or create a new account.'
-                  );
-                }}
-              >
-                <Text style={styles.debugButtonText}>Test: Account Not Found</Text>
+            {/* Social Login Buttons */}
+            <View style={styles.socialButtons}>
+              <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
+                <MaterialCommunityIcons name="google" size={24} color="#DB4437" />
+                <Text style={styles.socialButtonText}>Google</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.debugButton} 
-                onPress={() => {
-                  Alert.alert(
-                    'Email Verification Required',
-                    'Please check your email and click the verification link before signing in.'
-                  );
-                }}
-              >
-                <Text style={styles.debugButtonText}>Test: Email Verification</Text>
+
+              <TouchableOpacity style={styles.socialButton} onPress={handleAppleSignIn}>
+                <MaterialCommunityIcons name="apple" size={24} color="#000000" />
+                <Text style={styles.socialButtonText}>Apple</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Toggle Auth Mode */}
-            <View style={styles.toggleContainer}>
+            <View style={styles.socialButtons}>
+              <TouchableOpacity style={styles.socialButton} onPress={handlePhoneSignIn}>
+                <MaterialCommunityIcons name="phone" size={24} color="#4A90E2" />
+                <Text style={styles.socialButtonText}>Phone</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.socialButton} onPress={handleAnonymousSignIn}>
+                <MaterialCommunityIcons name="incognito" size={24} color="#6B7280" />
+                <Text style={styles.socialButtonText}>Guest</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Toggle Sign In/Sign Up */}
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => {
+                setIsSignUp(!isSignUp);
+                setFormData({
+                  email: '',
+                  password: '',
+                  confirmPassword: '',
+                  firstName: '',
+                  lastName: '',
+                });
+                setAgreedToTerms(false);
+                setPromotionalEmails(false);
+              }}
+            >
               <Text style={styles.toggleText}>
-                {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+                {isSignUp
+                  ? 'Already have an account? Sign in'
+                  : "Don't have an account? Sign up"}
               </Text>
-              <TouchableOpacity onPress={toggleAuthMode}>
-                <Text style={styles.toggleLink}>
-                  {isSignUp ? 'Sign In' : 'Sign Up'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -387,63 +370,42 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#1A202C',
+    color: '#4A90E2',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: '#64748B',
-    textAlign: 'center',
-    marginBottom: 4,
   },
-  tagline: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  form: {
+  card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 4,
   },
   nameRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   nameField: {
     flex: 1,
   },
   fieldContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -462,74 +424,38 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    position: 'relative',
   },
   passwordInput: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1F2937',
+    paddingRight: 48,
   },
-  eyeButton: {
-    padding: 12,
-  },
-  submitButton: {
-    backgroundColor: '#4A90E2',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 4,
-  },
-  toggleText: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  toggleLink: {
-    fontSize: 14,
-    color: '#4A90E2',
-    fontWeight: '600',
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
     marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 2,
   },
-  checkboxTextContainer: {
-    flex: 1,
+  checkboxChecked: {
+    backgroundColor: '#4A90E2',
+    borderColor: '#4A90E2',
   },
   checkboxText: {
+    flex: 1,
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
@@ -538,30 +464,67 @@ const styles = StyleSheet.create({
     color: '#4A90E2',
     fontWeight: '600',
   },
-  forgotPasswordContainer: {
+  submitButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 8,
+    marginBottom: 20,
   },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#4A90E2',
-    fontWeight: '500',
+  submitButtonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
-  debugContainer: {
-    marginTop: 16,
+  submitButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  socialButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     gap: 8,
   },
-  debugButton: {
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+  socialButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  toggleButton: {
+    marginTop: 16,
     alignItems: 'center',
   },
-  debugButtonText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '500',
+  toggleText: {
+    fontSize: 14,
+    color: '#4A90E2',
+    fontWeight: '600',
   },
 });
 
