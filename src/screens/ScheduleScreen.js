@@ -201,15 +201,21 @@ const ScheduleScreen = () => {
 
   const getSchedulesBySection = () => {
     const morning = schedules.filter(s => {
-      const hour = parseInt(s.time.split(':')[0]);
+      const time = s.scheduled_time || s.time;
+      if (!time) return false;
+      const hour = parseInt(time.split(':')[0]);
       return hour >= 6 && hour < 12;
     });
     const afternoon = schedules.filter(s => {
-      const hour = parseInt(s.time.split(':')[0]);
+      const time = s.scheduled_time || s.time;
+      if (!time) return false;
+      const hour = parseInt(time.split(':')[0]);
       return hour >= 12 && hour < 18;
     });
     const evening = schedules.filter(s => {
-      const hour = parseInt(s.time.split(':')[0]);
+      const time = s.scheduled_time || s.time;
+      if (!time) return false;
+      const hour = parseInt(time.split(':')[0]);
       return hour >= 18 || hour < 6;
     });
     return { morning, afternoon, evening };
@@ -231,8 +237,8 @@ const ScheduleScreen = () => {
       <Card style={[styles.scheduleCard, { backgroundColor: categoryStyle.bg }]}>
         <Card.Content style={styles.scheduleContent}>
           <View style={styles.scheduleTime}>
-            <Text style={styles.timeText}>{schedule.time}</Text>
-            <Text style={styles.durationText}>{schedule.duration}m</Text>
+            <Text style={styles.timeText}>{schedule.scheduled_time || schedule.time}</Text>
+            <Text style={styles.durationText}>{schedule.duration_minutes || schedule.duration}m</Text>
           </View>
           <View style={styles.scheduleInfo}>
             <View style={styles.scheduleHeader}>
