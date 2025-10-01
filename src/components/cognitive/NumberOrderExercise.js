@@ -73,7 +73,6 @@ const NumberOrderExercise = ({ exercise, onComplete, fullScreen = false }) => {
         if (newQuestionCount >= 10) {
           endGame();
         } else {
-          generateSequence();
         }
       }, 1500);
       return;
@@ -82,7 +81,8 @@ const NumberOrderExercise = ({ exercise, onComplete, fullScreen = false }) => {
     // Check if sequence is complete
     if (newUserSequence.length === targetSequence.length) {
       // Correct sequence completed!
-      setScore(score + 1);
+      const newScore = score + 1;
+      setScore(newScore);
       setFeedback('Correct! ✓');
       setIsAnswering(false);
       
@@ -90,13 +90,13 @@ const NumberOrderExercise = ({ exercise, onComplete, fullScreen = false }) => {
       setQuestionCount(newQuestionCount);
       
       // Increase difficulty every 3 correct answers
-      if ((score + 1) % 3 === 0 && sequenceLength < 6) {
+      if (newScore % 3 === 0 && sequenceLength < 6) {
         setSequenceLength(sequenceLength + 1);
       }
       
       setTimeout(() => {
         if (newQuestionCount >= 10) {
-          endGame();
+          endGame(newScore);
         } else {
           generateSequence();
         }
@@ -104,8 +104,13 @@ const NumberOrderExercise = ({ exercise, onComplete, fullScreen = false }) => {
     }
   };
 
-  const endGame = () => {
-    onComplete(score, 10);
+  const endGame = (finalScore) => {
+    if (finalScore >= 10) {
+      alert('Congratulations! You have completed the exercise with a perfect score of 10/10.');
+    } else {
+      alert(`You have completed the exercise with a score of ${finalScore}/10.`);
+    }
+    onClose();
   };
 
   // Show loading state if no sequence is generated yet
