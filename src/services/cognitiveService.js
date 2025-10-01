@@ -215,6 +215,8 @@ export const cognitiveService = {
         totalTimeSpent: 0,
         averageAccuracy: 0,
         streakDays: 0,
+        completedToday: 0,
+        targetDaily: 5,
         lastExerciseDate: null
       };
 
@@ -230,8 +232,15 @@ export const cognitiveService = {
         const totalAccuracy = data.reduce((sum, exercise) => sum + exercise.accuracy_percentage, 0);
         summary.averageAccuracy = totalAccuracy / data.length;
 
-        // Calculate streak days
+        // Calculate exercises completed today
         const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        summary.completedToday = data.filter(exercise => {
+          const exerciseDate = new Date(exercise.created_at);
+          return exerciseDate >= todayStart;
+        }).length;
+
+        // Calculate streak days
         let currentStreak = 0;
         let currentDate = today;
 
