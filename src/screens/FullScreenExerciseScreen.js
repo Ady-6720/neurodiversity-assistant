@@ -59,14 +59,13 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
     return () => backHandler.remove();
   }, []);
 
-  // Hide status bar for full immersion
   useEffect(() => {
     StatusBar.setHidden(true);
     return () => StatusBar.setHidden(false);
   }, []);
 
-  const handleExerciseComplete = async (finalScore, totalQuestions) => {
-    const endTime = new Date();
+  const handleExerciseComplete = async (finalScore, totalQuestions, extraData = {}) => {
+    const endTime = Date.now();
     const duration = Math.round((endTime - exerciseState.startTime) / 1000); // seconds
     
     const exerciseData = {
@@ -79,14 +78,20 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
       totalQuestions: totalQuestions,
       durationSeconds: duration,
       accuracy: totalQuestions > 0 ? Math.round((finalScore / totalQuestions) * 100) : 0,
-      notes: `Completed ${exercise.title} exercise`
+      notes: `Completed ${exercise.title} exercise`,
+      ...extraData
     };
     
     console.log('Exercise completed:', exerciseData);
     
-    // Save to backend
+    // Load best score for this exercise
+    let bestScore = null;
     if (user) {
       try {
+        const { data: stats } = await cognitiveService.getExerciseStats(user.uid, exercise.type);
+        bestScore = stats;
+        
+        // Save current completion
         const { data, error } = await cognitiveService.trackExerciseCompletion(user.uid, exerciseData);
         if (error) {
           console.error('Error saving exercise:', error);
@@ -94,7 +99,7 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
           console.log('Exercise saved successfully:', data);
         }
       } catch (error) {
-        console.error('Error tracking exercise:', error);
+        console.error('Error loading best score:', error);
       }
     }
     
@@ -102,7 +107,10 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
       score: finalScore,
       totalQuestions: totalQuestions,
       duration: duration,
-      accuracy: exerciseData.accuracy
+      accuracy: exerciseData.accuracy,
+      exerciseType: exercise.type,
+      bestScore: bestScore,
+      ...extraData
     });
     setShowCompletionDialog(true);
   };
