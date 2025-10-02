@@ -20,11 +20,6 @@ const NumberOrderExercise = ({ exercise, onComplete, fullScreen = false }) => {
   }, []);
 
   const generateSequence = () => {
-    if (questionCount >= 10) {
-      endGame();
-      return;
-    }
-
     // Generate random sequence of numbers
     const numbers = [];
     const maxNumber = Math.min(9, sequenceLength + 3); // Increase difficulty gradually

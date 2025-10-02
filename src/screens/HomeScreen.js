@@ -8,6 +8,7 @@ import {
   Dimensions,
   RefreshControl,
   Modal,
+  Alert,
 } from 'react-native';
 import {
   Card,
@@ -40,61 +41,61 @@ const HomeScreen = ({ navigation }) => {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (!user) return;
-      
-      try {
-        setLoadingStats(true);
-        
-        const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.uid);
-        if (summaryError) {
-          console.error('Error loading progress summary:', summaryError);
-        }
-        
-        const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.uid, 5);
-        if (historyError) {
-          console.error('Error loading exercise history:', historyError);
-        }
-        
-        console.log('Exercise history loaded:', history?.length || 0, 'exercises');
-        
-        setProgressData(summary || {
-          totalExercises: 0,
-          averageAccuracy: 0,
-          streakDays: 0,
-          totalTimeSpent: 0,
-          completedToday: 0,
-          targetDaily: 5
-        });
-        
-        const formattedActivity = (history || []).map(exercise => ({
-          id: exercise.id,
-          title: exercise.exercise_name,
-          time: formatTimeAgo(exercise.created_at),
-          icon: getExerciseIcon(exercise.exercise_type),
-          score: exercise.accuracy_percentage
-        }));
-        
-        console.log('Formatted activity:', formattedActivity);
-        setRecentActivity(formattedActivity);
-        
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        setProgressData({
-          totalExercises: 0,
-          averageAccuracy: 0,
-          streakDays: 0,
-          totalTimeSpent: 0,
-          completedToday: 0,
-          targetDaily: 5
-        });
-        setRecentActivity([]);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
+  const loadUserData = async () => {
+    if (!user) return;
     
+    try {
+      setLoadingStats(true);
+      
+      const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.uid);
+      if (summaryError) {
+        console.error('Error loading progress summary:', summaryError);
+      }
+      
+      const { data: history, error: historyError } = await cognitiveService.getExerciseHistory(user.uid, 5);
+      if (historyError) {
+        console.error('Error loading exercise history:', historyError);
+      }
+      
+      console.log('Exercise history loaded:', history?.length || 0, 'exercises');
+      
+      setProgressData(summary || {
+        totalExercises: 0,
+        averageAccuracy: 0,
+        streakDays: 0,
+        totalTimeSpent: 0,
+        completedToday: 0,
+        targetDaily: 5
+      });
+      
+      const formattedActivity = (history || []).map(exercise => ({
+        id: exercise.id,
+        title: exercise.exercise_name,
+        time: formatTimeAgo(exercise.created_at),
+        icon: getExerciseIcon(exercise.exercise_type),
+        score: exercise.accuracy_percentage
+      }));
+      
+      console.log('Formatted activity:', formattedActivity);
+      setRecentActivity(formattedActivity);
+      
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      setProgressData({
+        totalExercises: 0,
+        averageAccuracy: 0,
+        streakDays: 0,
+        totalTimeSpent: 0,
+        completedToday: 0,
+        targetDaily: 5
+      });
+      setRecentActivity([]);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
     loadUserData();
   }, [user]);
 
@@ -227,17 +228,34 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.dateText}>{getFormattedDate()}</Text>
           </View>
           
-          <TouchableOpacity
-            onPress={() => setShowProfileMenu(true)}
-            style={styles.profileButton}
-            accessibilityLabel="Profile and settings"
-          >
-            <MaterialCommunityIcons 
-              name="account-circle" 
-              size={44} 
-              color={colors.primary}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => {
+                setLoadingStats(true);
+                loadUserData();
+              }}
+              style={styles.refreshButton}
+              accessibilityLabel="Refresh data"
+            >
+              <MaterialCommunityIcons 
+                name="refresh" 
+                size={24} 
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => setShowProfileMenu(true)}
+              style={styles.profileButton}
+              accessibilityLabel="Profile and settings"
+            >
+              <MaterialCommunityIcons 
+                name="account-circle" 
+                size={44} 
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Profile Menu Modal */}
@@ -352,17 +370,17 @@ const HomeScreen = ({ navigation }) => {
                 {/* Stats Grid */}
                 <View style={styles.statsGrid}>
                   <View style={styles.statBox}>
-                    <MaterialCommunityIcons name="check-all" size={20} color="#3B82F6" />
+                    <MaterialCommunityIcons name="check-all" size={16} color="#3B82F6" />
                     <Text style={styles.statValue}>{progressData?.totalExercises || 0}</Text>
                     <Text style={styles.statLabel}>Completed</Text>
                   </View>
                   <View style={styles.statBox}>
-                    <MaterialCommunityIcons name="target" size={20} color="#10B981" />
+                    <MaterialCommunityIcons name="target" size={16} color="#10B981" />
                     <Text style={styles.statValue}>{Math.round(progressData?.averageAccuracy || 0)}%</Text>
                     <Text style={styles.statLabel}>Accuracy</Text>
                   </View>
                   <View style={styles.statBox}>
-                    <MaterialCommunityIcons name="clock-outline" size={20} color="#8B5CF6" />
+                    <MaterialCommunityIcons name="clock-outline" size={16} color="#8B5CF6" />
                     <Text style={styles.statValue}>{Math.floor((progressData?.totalTimeSpent || 0) / 60)}m</Text>
                     <Text style={styles.statLabel}>Time</Text>
                   </View>
@@ -428,26 +446,37 @@ const HomeScreen = ({ navigation }) => {
             </Card>
           ) : (
             recentActivity.map((activity) => (
-              <Card key={activity.id} style={styles.activityCard}>
-                <Card.Content style={styles.activityContent}>
-                  <View style={styles.activityIcon}>
-                    <MaterialCommunityIcons 
-                      name={activity.icon} 
-                      size={24} 
-                      color={colors.primary}
-                    />
-                  </View>
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.activityTitle}>{activity.title}</Text>
-                    <Text style={styles.activityTime}>{activity.time}</Text>
-                  </View>
-                  {activity.score && (
-                    <View style={styles.activityScore}>
-                      <Text style={styles.scoreText}>{Math.round(activity.score)}%</Text>
+              <TouchableOpacity 
+                key={activity.id}
+                onPress={() => {
+                  Alert.alert(
+                    activity.title,
+                    `Score: ${activity.score}%\nCompleted: ${activity.time}`,
+                    [{ text: 'OK' }]
+                  );
+                }}
+              >
+                <Card style={styles.activityCard}>
+                  <Card.Content style={styles.activityContent}>
+                    <View style={styles.activityIcon}>
+                      <MaterialCommunityIcons 
+                        name={activity.icon} 
+                        size={24} 
+                        color={colors.primary}
+                      />
                     </View>
-                  )}
-                </Card.Content>
-              </Card>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityTitle}>{activity.title}</Text>
+                      <Text style={styles.activityTime}>{activity.time}</Text>
+                    </View>
+                    {activity.score && (
+                      <View style={styles.activityScore}>
+                        <Text style={styles.scoreValue}>{activity.score}%</Text>
+                      </View>
+                    )}
+                  </Card.Content>
+                </Card>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -492,7 +521,7 @@ const styles = StyleSheet.create({
   },
   nameText: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 4,
   },
@@ -500,18 +529,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.subtext,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  refreshButton: {
+    padding: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+  },
   profileButton: {
-    marginTop: -4,
+    padding: spacing.xs,
   },
   // Progress Card - HERO
   progressCard: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-    borderRadius: 24,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
   },
   progressContent: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   loadingStats: {
     alignItems: 'center',
@@ -579,28 +618,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    textAlign: 'center',
   },
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   statBox: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    borderRadius: 16,
     alignItems: 'center',
-    gap: 4,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.accent3,
+    borderRadius: 10,
+    gap: 2,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.subtext,
     textAlign: 'center',
   },

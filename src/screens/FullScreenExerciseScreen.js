@@ -25,7 +25,10 @@ import {
   BreatheTimerExercise,
   DailyChecklistExercise,
   MoodCheckExercise,
-  EnhancedColorTapExercise
+  EnhancedColorTapExercise,
+  StopThinkExercise,
+  WaitForItExercise,
+  MindfulPauseExercise
 } from '../components/cognitive';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -164,6 +167,15 @@ const FullScreenExerciseScreen = ({ route, navigation }) => {
         case 'mood-check':
           console.log('Rendering MoodCheckExercise for type:', exercise.type);
           return <MoodCheckExercise {...exerciseProps} />;
+        case 'stop-think':
+          console.log('Rendering StopThinkExercise for type:', exercise.type);
+          return <StopThinkExercise {...exerciseProps} />;
+        case 'wait-for-it':
+          console.log('Rendering WaitForItExercise for type:', exercise.type);
+          return <WaitForItExercise {...exerciseProps} />;
+        case 'mindful-pause':
+          console.log('Rendering MindfulPauseExercise for type:', exercise.type);
+          return <MindfulPauseExercise {...exerciseProps} />;
         default:
           console.log('Rendering default exercise for type:', exercise.type);
           return (

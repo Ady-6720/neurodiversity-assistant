@@ -7,4 +7,7 @@ export { default as OddOneOutExercise } from './OddOneOutExercise';
 export { default as BreatheTimerExercise } from './BreatheTimerExercise';
 export { default as DailyChecklistExercise } from './DailyChecklistExercise';
 export { default as MoodCheckExercise } from './MoodCheckExercise';
-export { default as EnhancedColorTapExercise } from './EnhancedColorTapExercise'; 
+export { default as EnhancedColorTapExercise } from './EnhancedColorTapExercise';
+export { default as StopThinkExercise } from './StopThinkExercise';
+export { default as WaitForItExercise } from './WaitForItExercise';
+export { default as MindfulPauseExercise } from './MindfulPauseExercise';

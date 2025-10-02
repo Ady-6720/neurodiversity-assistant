@@ -45,7 +45,7 @@ const CognitiveScreen = ({ navigation }) => {
       subtitle: 'Practice mindfulness and self-regulation techniques',
       icon: 'meditation',
       color: colors.tertiary,
-      exerciseCount: 1,
+      exerciseCount: 4,
       description: 'Build skills to pause, think, and choose responses mindfully.'
     },
     {
@@ -133,7 +133,6 @@ const CognitiveScreen = ({ navigation }) => {
         color: colors.accent1,
         type: 'odd-one-out',
         benefits: [
-          'Improves pattern recognition',
           'Enhances categorization',
           'Builds analytical thinking'
         ]
@@ -153,6 +152,51 @@ const CognitiveScreen = ({ navigation }) => {
           'Improves self-regulation',
           'Reduces stress',
           'Builds mindfulness'
+        ]
+      },
+      {
+        id: 'stop-think',
+        title: 'Stop & Think',
+        description: 'Wait for green light before tapping',
+        duration: '2-3 mins',
+        difficulty: 'Medium',
+        icon: 'traffic-light',
+        color: '#EF4444',
+        type: 'stop-think',
+        benefits: [
+          'Teaches pause-before-action',
+          'Builds impulse inhibition',
+          'Improves self-control'
+        ]
+      },
+      {
+        id: 'wait-for-it',
+        title: 'Wait For It',
+        description: 'Resist tapping until timer says GO',
+        duration: '2-3 mins',
+        difficulty: 'Medium',
+        icon: 'timer-sand',
+        color: '#F59E0B',
+        type: 'wait-for-it',
+        benefits: [
+          'Builds delayed gratification',
+          'Improves patience',
+          'Strengthens impulse resistance'
+        ]
+      },
+      {
+        id: 'mindful-pause',
+        title: 'Mindful Pause',
+        description: '5-4-3-2-1 grounding exercise',
+        duration: '3-5 mins',
+        difficulty: 'Easy',
+        icon: 'hand-peace',
+        color: '#8B5CF6',
+        type: 'mindful-pause',
+        benefits: [
+          'Grounding technique',
+          'Reduces anxiety',
+          'Builds emotional regulation'
         ]
       }
     ],
@@ -230,7 +274,7 @@ const CognitiveScreen = ({ navigation }) => {
                   <View style={[styles.sectionIcon, { backgroundColor: section.color }]}>
                     <MaterialCommunityIcons 
                       name={section.icon} 
-                      size={32} 
+                      size={28} 
                       color={colors.surface}
                     />
                   </View>
@@ -394,18 +438,21 @@ const styles = StyleSheet.create({
   sectionCard: {
     backgroundColor: colors.surface,
     elevation: 2,
+    borderRadius: 16,
   },
   sectionCardContent: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   sectionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -414,21 +461,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.semibold,
+    fontSize: 17,
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   sectionSubtitle: {
-    fontSize: typography.sizes.md,
-    color: colors.subtext,
-    lineHeight: 20,
-  },
-  sectionDescription: {
-    fontSize: typography.sizes.sm,
+    fontSize: 13,
     color: colors.subtext,
     lineHeight: 18,
-    marginBottom: spacing.md,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: colors.subtext,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
   },
   sectionFooter: {
     flexDirection: 'row',

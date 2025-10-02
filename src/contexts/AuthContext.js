@@ -6,7 +6,8 @@ import {
   signInWithEmailAndPassword,
   signInAnonymously,
   signOut as firebaseSignOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification
 } from 'firebase/auth';
 import { 
   doc, 
@@ -39,11 +40,16 @@ export const AuthProvider = ({ children }) => {
       // Add id property for compatibility with existing code
       if (currentUser) {
         currentUser.id = currentUser.uid;
+        console.log('Auth state changed:', {
+          email: currentUser.email,
+          emailVerified: currentUser.emailVerified,
+          uid: currentUser.uid
+        });
       }
       setUser(currentUser);
       
-      // Load profile if user exists
-      if (currentUser) {
+      // Load profile if user exists AND email is verified
+      if (currentUser && currentUser.emailVerified) {
         try {
           const profileRef = doc(db, 'user_profiles', currentUser.uid);
           const profileSnap = await getDoc(profileRef);
@@ -96,24 +102,51 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('Creating user account for:', email);
       
-      // Create user profile in Firestore
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('User account created successfully:', userCredential.user.uid);
+      
+      // Send email verification
+      try {
+        console.log('Attempting to send verification email...');
+        console.log('User object:', {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          emailVerified: userCredential.user.emailVerified
+        });
+        
+        await sendEmailVerification(userCredential.user);
+        console.log('✅ Verification email sent successfully to:', email);
+      } catch (emailError) {
+        console.error('❌ Failed to send verification email:', emailError);
+        console.error('Email error code:', emailError.code);
+        console.error('Email error message:', emailError.message);
+        console.error('Full error:', JSON.stringify(emailError, null, 2));
+        // Don't fail signup if email sending fails
+      }
+      
+      // Create user profile in Firestore (but user can't access until verified)
       const newProfile = {
         id: userCredential.user.uid,
         display_name: userData.displayName || email.split('@')[0],
         email: email,
         neurodiversity_type: [],
         preferences: {},
+        email_verified: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       
+      console.log('Creating user profile in Firestore...');
       await setDoc(doc(db, 'user_profiles', userCredential.user.uid), newProfile);
+      console.log('✅ User profile created successfully');
       
       return { data: userCredential, error: null };
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('❌ Sign up error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       return { data: null, error };
     } finally {
       setLoading(false);

@@ -42,11 +42,6 @@ const ColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
   ];
 
   const generateQuestion = () => {
-    if (questionCount >= totalQuestions) {
-      endGame();
-      return;
-    }
-    
     const correctColorObj = gameColors[Math.floor(Math.random() * gameColors.length)];
     const colorNameObj = gameColors[Math.floor(Math.random() * gameColors.length)];
     
@@ -63,6 +58,7 @@ const ColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
     setCurrentColor(correctColorObj.color);
     setColorName(colorNameObj.name);
     setOptions(optionColors);
+    setIsAnswering(false);
   };
 
   const startGame = () => {
@@ -72,8 +68,8 @@ const ColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
     generateQuestion();
   };
 
-  const endGame = () => {
-    onComplete(score, totalQuestions);
+  const endGame = (finalScore) => {
+    onComplete(finalScore, totalQuestions);
   };
 
   const handleTap = async (selectedColor, selectedColorName) => {
@@ -105,8 +101,10 @@ const ColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
     setFeedback(isCorrect ? 'Correct! 🎉' : 'Wrong! 😔');
     setShowFeedback(true);
     
+    let newScore = score;
     if (isCorrect) {
-      setScore(score + 1);
+      newScore = score + 1;
+      setScore(newScore);
     }
     
     // Animate feedback
@@ -126,14 +124,14 @@ const ColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
     
     setTimeout(() => {
       setShowFeedback(false);
-      setQuestionCount(questionCount + 1);
+      const newQuestionCount = questionCount + 1;
+      setQuestionCount(newQuestionCount);
       
-      if (questionCount + 1 >= totalQuestions) {
-        endGame();
+      if (newQuestionCount >= totalQuestions) {
+        endGame(newScore);
       } else {
         generateQuestion();
       }
-      setIsAnswering(false);
     }, 1000);
   };
 

@@ -73,14 +73,22 @@ const StandardAuthScreen = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    console.log('handleSubmit called', { isSignUp, formData });
+    
+    if (!validateForm()) {
+      console.log('Validation failed');
+      return;
+    }
 
+    console.log('Validation passed, starting signup/signin...');
     setLoading(true);
 
     try {
       let result;
       if (isSignUp) {
         const displayName = `${formData.firstName} ${formData.lastName}`.trim();
+        console.log('Calling signUp with:', { email: formData.email, displayName });
+        
         result = await signUp(formData.email, formData.password, {
           displayName,
           firstName: formData.firstName,
@@ -88,12 +96,13 @@ const StandardAuthScreen = () => {
           promotionalEmails,
         });
         
+        console.log('SignUp result:', result);
+        
         if (!result.error) {
-          Alert.alert(
-            'Check your email',
-            'Please verify your email before signing in.',
-            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
-          );
+          // Don't sign out, just navigate to verification screen
+          // The user is signed in but not verified
+          console.log('Signup successful, navigating to email verification...');
+          // Navigation will be handled by AuthContext based on emailVerified status
         } else {
           Alert.alert('Signup failed', result.error.message);
         }
@@ -286,8 +295,12 @@ const StandardAuthScreen = () => {
             {/* Submit Button */}
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
+              onPress={() => {
+                console.log('Submit button pressed!');
+                handleSubmit();
+              }}
               disabled={loading}
+              activeOpacity={0.7}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />

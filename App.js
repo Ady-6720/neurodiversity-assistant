@@ -31,6 +31,7 @@ import StandardAuthScreen from './src/screens/StandardAuthScreen';
 import SimpleOnboardingScreen from './src/screens/SimpleOnboardingScreen';
 import FullScreenExerciseScreen from './src/screens/FullScreenExerciseScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -208,6 +209,12 @@ function AppNavigation() {
 
   if (!user) {
     return <StandardAuthScreen />;
+  }
+
+  // Check if email is verified
+  if (user && !user.emailVerified) {
+    console.log('User not verified, showing EmailVerificationScreen');
+    return <EmailVerificationScreen />;
   }
 
   if (needsOnboarding) {

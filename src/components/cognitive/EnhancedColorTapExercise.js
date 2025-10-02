@@ -1,8 +1,9 @@
 // src/components/cognitive/EnhancedColorTapExercise.js
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Title, Text, Button } from 'react-native-paper';
+import { Title, Text } from 'react-native-paper';
 import { colors, spacing, typography } from '../../config/theme';
+import FeedbackAnimation from './FeedbackAnimation';
 
 const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) => {
   const [score, setScore] = useState(0);
@@ -11,6 +12,8 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
   const [options, setOptions] = useState([]);
   const [feedback, setFeedback] = useState('');
   const [isAnswering, setIsAnswering] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
   
   const gameColors = [
     { name: 'Red', color: '#FF5252' },
@@ -27,11 +30,6 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
   }, []);
 
   const generateQuestion = () => {
-    if (questionCount >= 10) {
-      endGame();
-      return;
-    }
-    
     // Pick a random color name to display
     const targetColor = gameColors[Math.floor(Math.random() * gameColors.length)];
     setColorName(targetColor.name);
@@ -56,27 +54,27 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
     if (isAnswering) return;
     
     setIsAnswering(true);
-    const isCorrect = selectedColor.name === colorName;
+    const correct = selectedColor.name === colorName;
+    setIsCorrect(correct);
+    setShowFeedback(true);
     
     let newScore = score;
-    if (isCorrect) {
+    if (correct) {
       newScore = score + 1;
       setScore(newScore);
-      setFeedback('Correct! ✓');
-    } else {
-      setFeedback('Wrong! ✗');
     }
     
     const newQuestionCount = questionCount + 1;
     setQuestionCount(newQuestionCount);
     
     setTimeout(() => {
+      setShowFeedback(false);
       if (newQuestionCount >= 10) {
         endGame(newScore);
       } else {
         generateQuestion();
       }
-    }, 1000);
+    }, 1200);
   };
 
   const endGame = (finalScore) => {
@@ -117,9 +115,11 @@ const EnhancedColorTapExercise = ({ exercise, onComplete, fullScreen = false }) 
         ))}
       </View>
       
-      {feedback ? (
-        <Text style={styles.feedback}>{feedback}</Text>
-      ) : null}
+      <FeedbackAnimation 
+        isCorrect={isCorrect}
+        visible={showFeedback}
+        onComplete={() => setShowFeedback(false)}
+      />
     </View>
   );
 };

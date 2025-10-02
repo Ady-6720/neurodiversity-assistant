@@ -36,7 +36,8 @@ const ScheduleScreen = () => {
     title: '',
     time: '09:00',
     duration: '30',
-    category: 'work'
+    category: 'work',
+    date: new Date()
   });
   
   const scrollViewRef = useRef(null);
@@ -125,7 +126,7 @@ const ScheduleScreen = () => {
         time: newActivity.time,
         duration: dur,
         type: newActivity.category, // Map category to type
-        date: currentDate.toISOString().split('T')[0]
+        date: newActivity.date.toISOString().split('T')[0]
       };
 
       const { data, error } = await scheduleService.createScheduleItem(user.uid, scheduleData);
@@ -133,7 +134,7 @@ const ScheduleScreen = () => {
         setSnackbarMessage('Failed to add activity');
       } else {
         setSchedules([...schedules, data]);
-        setNewActivity({ title: '', time: '09:00', duration: '30', category: 'work' });
+        setNewActivity({ title: '', time: '09:00', duration: '30', category: 'work', date: new Date() });
         setModalVisible(false);
         setSnackbarMessage('Activity added');
       }
@@ -453,6 +454,41 @@ const ScheduleScreen = () => {
           >
             <Text style={styles.modalTitle}>Add to Schedule</Text>
             
+            <Text style={styles.label}>Date</Text>
+            <View style={styles.datePickerRow}>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => {
+                  const yesterday = new Date(newActivity.date);
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setNewActivity({...newActivity, date: yesterday});
+                }}
+              >
+                <MaterialCommunityIcons name="chevron-left" size={24} color={colors.primary} />
+              </TouchableOpacity>
+              
+              <View style={styles.dateDisplay}>
+                <Text style={styles.dateText}>
+                  {newActivity.date.toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </Text>
+              </View>
+              
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => {
+                  const tomorrow = new Date(newActivity.date);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  setNewActivity({...newActivity, date: tomorrow});
+                }}
+              >
+                <MaterialCommunityIcons name="chevron-right" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            
             <Text style={styles.label}>Time</Text>
             <TextInput
               value={newActivity.time}
@@ -769,16 +805,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     marginTop: spacing.sm,
   },
+  datePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  dateButton: {
+    padding: spacing.xs,
+    borderRadius: 8,
+    backgroundColor: colors.accent3,
+  },
+  dateDisplay: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.accent3,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
   input: {
-    marginBottom: spacing.xs,
-    backgroundColor: '#FFFFFF',
+    marginBottom: spacing.sm,
   },
   durationChips: {
     flexDirection: 'row',
-    gap: spacing.xs,
     marginBottom: spacing.xs,
   },
   durationChip: {
