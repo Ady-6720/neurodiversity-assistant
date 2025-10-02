@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.client';
 
 const LeaderboardScreen = () => {
   const { user } = useAuth();

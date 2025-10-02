@@ -1,5 +1,5 @@
 // src/screens/HomeScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,7 +9,9 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Card,
   Title,
@@ -28,24 +30,22 @@ import { taskService } from '../services/taskService';
 
 const HomeScreen = ({ navigation }) => {
   const { user, profile, signOut, loading } = useAuth();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 768;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [progressData, setProgressData] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async (silent = false) => {
     if (!user) return;
     
     try {
-      setLoadingStats(true);
+      if (!silent) {
+        setLoadingStats(true);
+      }
       
       const { data: summary, error: summaryError } = await cognitiveService.getProgressSummary(user.uid);
       if (summaryError) {
@@ -93,11 +93,39 @@ const HomeScreen = ({ navigation }) => {
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, [user]); // Close useCallback with dependencies
+
+  useEffect(() => {
+    // Update time every minute
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    // Auto-refresh data every 30 seconds (silent mode to prevent flickering)
+    const refreshInterval = setInterval(() => {
+      if (user) {
+        loadUserData(true); // Silent refresh
+      }
+    }, 30000);
+    
+    return () => {
+      clearInterval(timer);
+      clearInterval(refreshInterval);
+    };
+  }, [user, loadUserData]);
 
   useEffect(() => {
     loadUserData();
-  }, [user]);
+  }, [loadUserData]);
+
+  // Refresh data when screen comes into focus (silent to prevent flicker)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadUserData(true); // Silent refresh
+      }
+    }, [user, loadUserData])
+  );
 
   const handleSignOut = async () => {
     const result = await signOut();

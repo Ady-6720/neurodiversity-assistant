@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.client';
 import { doc, setDoc } from 'firebase/firestore';
 
 const SimpleOnboardingScreen = ({ onComplete }) => {

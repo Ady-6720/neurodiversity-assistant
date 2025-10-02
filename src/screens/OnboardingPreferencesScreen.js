@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.client';
 
 const OnboardingPreferencesScreen = ({ navigation, route }) => {
   const { user, profileData } = route.params || {};

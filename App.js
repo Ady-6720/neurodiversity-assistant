@@ -228,8 +228,8 @@ function AppNavigation() {
         screenOptions={{
           tabBarStyle: {
             backgroundColor: colors.surface,
-            height: 70,
-            paddingBottom: spacing.md,
+            height: 85, // Increased height
+            paddingBottom: 20, // More bottom padding
             paddingTop: spacing.sm,
             borderTopWidth: 2,
             borderTopColor: colors.accent3,
@@ -241,6 +241,7 @@ function AppNavigation() {
           },
           tabBarItemStyle: {
             padding: spacing.sm,
+            paddingBottom: 8, // Extra padding for labels
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.subtext,

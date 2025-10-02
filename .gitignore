@@ -1,7 +1,7 @@
 # Expo
 .expo/
 dist/
-web-build/
+# web-build/ - commented out for gh-pages deployment
 
 # Node
 node_modules/

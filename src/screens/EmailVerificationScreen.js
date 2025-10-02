@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { sendEmailVerification } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { sendEmailVerification, signOut as firebaseSignOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../config/firebase.client';
 
 const EmailVerificationScreen = () => {
   const { user, signOut } = useAuth();
@@ -16,16 +16,18 @@ const EmailVerificationScreen = () => {
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
+    if (!user) return;
+    
     // Check verification status immediately on mount
     checkVerificationStatus();
     
-    // Then check every 3 seconds
+    // Then check every 5 seconds (reduced frequency to avoid flickering)
     const interval = setInterval(() => {
       checkVerificationStatus();
-    }, 3000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.uid]); // Only re-run if user changes
 
   useEffect(() => {
     // Countdown timer for resend button
@@ -42,12 +44,17 @@ const EmailVerificationScreen = () => {
 
     try {
       setChecking(true);
-      await user.reload();
       
-      if (user.emailVerified) {
-        console.log('✅ Email verified! App will automatically proceed to onboarding...');
+      // Reload the user from Firebase to get latest emailVerified status
+      await auth.currentUser?.reload();
+      const currentUser = auth.currentUser;
+      
+      if (currentUser?.emailVerified) {
+        console.log('✅ Email verified! Proceeding to onboarding...');
+        
         // The App.js will automatically detect emailVerified and show onboarding
-        // No need to navigate manually - just let the auth state update
+        // Just trigger a state update by reloading the user object
+        // No need to sign out - just let the auth state update naturally
       }
     } catch (error) {
       console.error('Error checking verification status:', error);

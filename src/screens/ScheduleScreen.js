@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Animated, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Animated, Pressable, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { 
   Portal, 
   Modal, 
@@ -21,6 +21,8 @@ import { scheduleService } from '../services/scheduleService';
 
 const ScheduleScreen = () => {
   const { user } = useAuth();
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
   const [schedules, setSchedules] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -454,6 +456,7 @@ const ScheduleScreen = () => {
           >
             <Text style={styles.modalTitle}>Add to Schedule</Text>
             
+            <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.label}>Date</Text>
             <View style={styles.datePickerRow}>
               <TouchableOpacity
@@ -586,6 +589,7 @@ const ScheduleScreen = () => {
                 Add
               </Button>
             </View>
+            </ScrollView>
           </Animated.View>
         </Modal>
       </Portal>
@@ -676,8 +680,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 100,
+    padding: spacing.md,
+    paddingBottom: 120, // Extra space for bottom navbar
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -783,11 +787,13 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.sm,
     borderRadius: 16,
-    padding: spacing.lg,
-    width: '90%',
-    maxWidth: 500,
+    padding: spacing.md,
+    width: '95%',
+    maxWidth: 400,
+    maxHeight: '95%', // Increased vertical size
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
@@ -834,6 +840,7 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: spacing.sm,
+    height: 48, // Fixed height for inputs
   },
   durationChips: {
     flexDirection: 'row',

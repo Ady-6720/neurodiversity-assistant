@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { colors, spacing } from '../config/theme';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { db, auth } from '../config/firebase.client';
 import { updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 const ProfileScreen = ({ navigation }) => {

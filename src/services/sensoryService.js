@@ -1,4 +1,4 @@
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.client';
 import { collection, doc, addDoc, getDocs, setDoc, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 // Sensory Tools and Strategies Data

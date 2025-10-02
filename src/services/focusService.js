@@ -1,4 +1,4 @@
-import { db } from '../config/firebase';
+import { db } from '../config/firebase.client';
 import { collection, doc, addDoc, getDoc, getDocs, updateDoc, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 // Focus Service for managing user focus sessions and productivity tracking
